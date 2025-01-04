@@ -104,18 +104,10 @@ def main():
 
         requests.post(
             f"{party}/api/set-initial-values/",
-            json={"t": t, "n": n, "id": i + 1, "p": p},
+            json={"t": t, "n": n, "id": i + 1, "p": p, "parties": parties},
         )
 
         print("Initial values set for party ", i + 1)
-
-    # Set the parties for each party
-    for i in range(n):
-        party = parties[i]
-
-        requests.post(f"{party}/api/set-parties/", json={"parties": parties})
-
-        print("Parties set for party ", i + 1)
 
     # Set the shares for each party
     for i in range(n):
@@ -131,14 +123,6 @@ def main():
         )
 
         print("Shares set for party ", i + 1)
-
-    # Calulate A for each party
-    for i in range(n):
-        party = parties[i]
-
-        requests.post(f"{party}/api/calculate-A/")
-
-        print("A calculated for party ", i + 1)
 
     # Calulate r for each party
     for i in range(n):
@@ -168,28 +152,35 @@ def main():
         print("Multiplicative share calculated for party ", i + 1)
 
     # Sum up the multiplicative shares
-    multiplicative_shares = [(0, 0)] * n
+    multiplicative_shares = []
 
-    for i in range(n):
-        party = parties[i]
-
-        multiplicative_share = requests.get(
-            f"{party}/api/calculate-multiplicative-share/"
+    first_multiplicative_share = requests.get(
+        f"{parties[0]}/api/calculate-multiplicative-share/"
+    ).json()
+    second_multiplicative_share = requests.get(
+        f"{parties[4]}/api/calculate-multiplicative-share/"
+    ).json()
+    multiplicative_shares.append(
+        (
+            first_multiplicative_share["id"],
+            first_multiplicative_share["multiplicative_share"],
         )
+    )
 
-        multiplicative_shares[i] = (
-            i + 1,
-            multiplicative_share.json()["multiplicative_share"],
+    multiplicative_shares.append(
+        (
+            second_multiplicative_share["id"],
+            second_multiplicative_share["multiplicative_share"],
         )
+    )
 
-    selected_shares = [multiplicative_shares[3], multiplicative_shares[1]]
-    print("Selected Shares for Reconstruction: ", selected_shares)
+    print("Selected Shares for Reconstruction: ", multiplicative_shares)
 
-    coefficients = computate_coefficients(selected_shares, p)
+    coefficients = computate_coefficients(multiplicative_shares, p)
 
     print("coefficients = ", coefficients)
 
-    secret = reconstruct_secret(selected_shares, coefficients, p)
+    secret = reconstruct_secret(multiplicative_shares, coefficients, p)
 
     print("secret = ", secret % p)
 

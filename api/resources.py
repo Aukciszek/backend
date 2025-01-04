@@ -1,11 +1,10 @@
 import requests
-from flask_restful import Resource
-
 from config import state
+from flask import abort
+from flask_restful import Resource
 from parsers import (
     calculate_r_args,
     set_initial_values_args,
-    set_parties_args,
     set_r_args,
     set_shares_args,
 )
@@ -19,8 +18,10 @@ class SetInitialValues(Resource):
             or state["n"] is not None
             or state["id"] is not None
             or state["p"] is not None
+            or state["shared_r"] is not None
+            or state["parties"] is not None
         ):
-            return {"result": "Initial values already set"}, 400
+            abort(400, "Initial values already set.")
 
         args = set_initial_values_args.parse_args()
         state["t"] = args["t"]
@@ -28,25 +29,14 @@ class SetInitialValues(Resource):
         state["id"] = args["id"]
         state["p"] = args["p"]
         state["shared_r"] = [None] * state["n"]
+        parties = args["parties"]
+
+        if len(parties) != state["n"]:
+            abort(400, "Number of parties does not match n.")
+
+        state["parties"] = parties
 
         return {"result": "Initial values set"}, 201
-
-
-class SetParties(Resource):
-    def post(self):
-
-        if state["parties"] is not None:
-            return {"result": "Parties already set"}, 400
-
-        args = set_parties_args.parse_args()
-        local_parties = args["parties"]
-
-        if len(local_parties) != state["n"]:
-            return {"result": "Invalid number of parties"}, 400
-
-        state["parties"] = local_parties
-
-        return {"result": "Parties set"}, 201
 
 
 class SetShares(Resource):
@@ -61,10 +51,14 @@ class SetShares(Resource):
         return {"result": "Shares set"}, 201
 
 
-class CalculateA(Resource):
+class CalculateR(Resource):
     def post(self):
-        if state["A"] is not None:
-            return {"result": "A already calculated"}, 400
+        if state["r"] is not None:
+            abort(400, "r already calculated.")
+
+        args = calculate_r_args.parse_args()
+        first_client_id = args["first_client_id"]
+        second_client_id = args["second_client_id"]
 
         B = [list(range(1, state["n"] + 1)) for _ in range(state["n"])]
 
@@ -79,21 +73,7 @@ class CalculateA(Resource):
         for i in range(state["t"]):
             P[i][i] = 1
 
-        state["A"] = multiply_matrix(
-            multiply_matrix(B_inv, P, state["p"]), B, state["p"]
-        )
-
-        return {"result": "A calculated"}, 201
-
-
-class CalculateR(Resource):
-    def post(self):
-        if state["r"] is not None:
-            return {"result": "r already calculated"}, 400
-
-        args = calculate_r_args.parse_args()
-        first_client_id = args["first_client_id"]
-        second_client_id = args["second_client_id"]
+        A = multiply_matrix(multiply_matrix(B_inv, P, state["p"]), B, state["p"])
 
         state["r"] = [0] * state["n"]
 
@@ -106,9 +86,7 @@ class CalculateR(Resource):
         multiplied_shares = (first_client_share * second_client_share) % state["p"]
 
         for i in range(state["n"]):
-            state["r"][i] = (
-                multiplied_shares * state["A"][state["id"] - 1][i]
-            ) % state["p"]
+            state["r"][i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
 
         return {"result": "r calculated"}, 201
 
@@ -120,7 +98,7 @@ class SetR(Resource):
         local_shared_r = args["shared_r"]
 
         if state["shared_r"][party_id - 1] is not None:
-            return {"result": "r already set."}, 400
+            abort(400, "r already set for this party.")
 
         state["shared_r"][party_id - 1] = local_shared_r
 
@@ -145,7 +123,7 @@ class SendR(Resource):
 class CalculateMultiplicativeShare(Resource):
     def put(self):
         if state["multiplicative_share"] is not None:
-            raise ValueError("Coefficient already calculated.")
+            abort(400, "Multiplicative share already calculated.")
 
         state["multiplicative_share"] = (
             sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
@@ -154,7 +132,10 @@ class CalculateMultiplicativeShare(Resource):
         return {"result": "Multiplicative share calculated"}, 201
 
     def get(self):
-        return {"multiplicative_share": state["multiplicative_share"]}, 200
+        return {
+            "id": state["id"],
+            "multiplicative_share": state["multiplicative_share"],
+        }, 200
 
 
 class Reset(Resource):

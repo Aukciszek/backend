@@ -1,15 +1,12 @@
+from config import args
 from flask import Flask
 from flask_restful import Api
-
-from config import args
 from resources import (
-    CalculateA,
     CalculateMultiplicativeShare,
     CalculateR,
     Reset,
     SendR,
     SetInitialValues,
-    SetParties,
     SetR,
     SetShares,
 )
@@ -17,11 +14,8 @@ from resources import (
 app = Flask(__name__)
 api = Api(app)
 
-
 api.add_resource(SetInitialValues, "/api/set-initial-values/")
-api.add_resource(SetParties, "/api/set-parties/")
 api.add_resource(SetShares, "/api/set-shares/")
-api.add_resource(CalculateA, "/api/calculate-A/")
 api.add_resource(CalculateR, "/api/calculate-r/")
 api.add_resource(SetR, "/api/set-r/")
 api.add_resource(SendR, "/api/send-r/")

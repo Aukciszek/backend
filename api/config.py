@@ -12,7 +12,6 @@ state = {
     "parties": None,
     "client_shares": [],
     "shared_r": None,
-    "A": None,
     "r": None,
     "multiplicative_share": None,
 }

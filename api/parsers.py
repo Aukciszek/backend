@@ -5,9 +5,7 @@ set_initial_values_args.add_argument("t", type=int, help="t", required=True)
 set_initial_values_args.add_argument("n", type=int, help="n", required=True)
 set_initial_values_args.add_argument("id", type=int, help="ID", required=True)
 set_initial_values_args.add_argument("p", type=int, help="p", required=True)
-
-set_parties_args = reqparse.RequestParser()
-set_parties_args.add_argument(
+set_initial_values_args.add_argument(
     "parties", type=list, help="List of parties", required=True, location="json"
 )
 
@@ -19,7 +17,6 @@ calculate_r_args = reqparse.RequestParser()
 calculate_r_args.add_argument(
     "first_client_id", type=int, help="First client ID", required=True
 )
-
 calculate_r_args.add_argument(
     "second_client_id",
     type=int,

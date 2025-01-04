@@ -2,6 +2,9 @@ import copy
 
 
 def binary_exponentiation(b, k, n):
+    if k < 0:
+        k = n - 2
+
     a = 1
     while k:
         if k & 1:

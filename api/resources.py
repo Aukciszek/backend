@@ -1,6 +1,7 @@
+import asyncio
 from random import sample
 
-import requests
+import aiohttp
 from config import STATUS, state
 from flask import abort
 from flask_restful import Resource
@@ -10,7 +11,7 @@ from parsers import (
     set_r_args,
     set_shares_args,
 )
-from shamir_functions import (
+from utils import (
     binary_exponentiation,
     computate_coefficients,
     inverse_matrix_mod,
@@ -143,17 +144,37 @@ class SetSharedRFromParty(Resource):
 
 
 class SendRToParties(Resource):
-    def get(self):
+    async def send_post_request(self, url, json_data):
+        """Send a POST request asynchronously using aiohttp."""
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, json=json_data) as response:
+                    if response.status != 201:
+                        raise ValueError(
+                            f"Error: Received status code {response.status} for URL {url}"
+                        )
+            except aiohttp.ClientError as e:
+                raise ValueError(f"HTTP error occurred for {url}: {e}")
+            except Exception as e:
+                raise ValueError(f"Unexpected error occurred for {url}: {e}")
+
+    async def send_all_requests(self):
+        """Send requests to all parties asynchronously."""
+        tasks = []
         for i in range(state["n"]):
             if i == state["id"] - 1:
                 state["shared_r"][i] = state["r"][i]
                 continue
 
-            requests.post(
-                f"{state["parties"][i]}/api/set-shared-r/",
-                json={"party_id": state["id"], "shared_r": state["r"][i]},
-            )
+            url = f"{state['parties'][i]}/api/set-shared-r/"
+            json_data = {"party_id": state["id"], "shared_r": state["r"][i]}
+            tasks.append(self.send_post_request(url, json_data))
 
+        await asyncio.gather(*tasks)
+
+    def get(self):
+        """Handle the GET request."""
+        asyncio.run(self.send_all_requests())
         state["status"] = STATUS.R_SHARED
         return {"result": "r sent"}, 200
 
@@ -181,7 +202,44 @@ class CalculateMultiplicativeShare(Resource):
 
 
 class ResonstructSecret(Resource):
+    async def fetch_multiplicative_share(self, url):
+        """Fetch multiplicative share asynchronously using aiohttp."""
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url) as response:
+                    if response.status == 400:
+                        raise ValueError("Multiplicative share not calculated.")
+                    elif response.status != 200:
+                        raise ValueError(
+                            f"Error: Received status code {response.status} for URL {url}"
+                        )
+                    return await response.json()
+            except aiohttp.ClientError as e:
+                raise ValueError(f"HTTP error occurred for {url}: {e}")
+            except Exception as e:
+                raise ValueError(f"Unexpected error occurred for {url}: {e}")
+
+    async def gather_multiplicative_shares(self, selected_parties):
+        """Gather multiplicative shares asynchronously from selected parties."""
+        tasks = []
+        for party in selected_parties:
+            url = f"{party}/api/calculate-multiplicative-share/"
+            tasks.append(self.fetch_multiplicative_share(url))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        multiplicative_shares = []
+        for result in results:
+            if isinstance(result, Exception):
+                abort(
+                    400, "Multiplicative share not calculated for one or more parties."
+                )
+            multiplicative_shares.append((result["id"], result["multiplicative_share"]))
+
+        return multiplicative_shares
+
     def get(self):
+        """Handle the GET request."""
         if state["multiplicative_share"] is None:
             abort(400, "Multiplicative share not calculated.")
 
@@ -190,19 +248,11 @@ class ResonstructSecret(Resource):
         ]
         selected_parties = sample(parties, state["t"] - 1)
 
-        multiplicative_shares = [(state["id"], state["multiplicative_share"])]
+        multiplicative_shares = asyncio.run(
+            self.gather_multiplicative_shares(selected_parties)
+        )
 
-        for party in selected_parties:
-            r = requests.get(f"{party}/api/calculate-multiplicative-share/")
-
-            if r.status_code == 400:
-                abort(
-                    400, "Multiplicative share not calculated for one or more parties."
-                )
-
-            multiplicative_shares.append(
-                (r.json()["id"], r.json()["multiplicative_share"])
-            )
+        multiplicative_shares.append((state["id"], state["multiplicative_share"]))
 
         coefficients = computate_coefficients(multiplicative_shares, state["p"])
 
@@ -218,7 +268,7 @@ class Reset(Resource):
         state["multiplicative_share"] = None
         state["status"] = STATUS.INITIALIZED
 
-        return {"result": "Reset successful"}, 200
+        return {"result": "Reset successful"}, 201
 
 
 class FactoryReset(Resource):
@@ -234,4 +284,4 @@ class FactoryReset(Resource):
         state["multiplicative_share"] = None
         state["status"] = STATUS.NOT_INITIALIZED
 
-        return {"result": "Factory reset successful"}, 200
+        return {"result": "Factory reset successful"}, 201

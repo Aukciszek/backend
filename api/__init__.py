@@ -4,23 +4,29 @@ from flask_restful import Api
 from resources import (
     CalculateMultiplicativeShare,
     CalculateR,
+    FactoryReset,
     Reset,
-    SendR,
+    ResonstructSecret,
+    SendRToParties,
     SetInitialValues,
-    SetR,
+    SetSharedRFromParty,
     SetShares,
+    Status,
 )
 
 app = Flask(__name__)
 api = Api(app)
 
-api.add_resource(SetInitialValues, "/api/set-initial-values/")
+api.add_resource(Status, "/api/status/")
+api.add_resource(SetInitialValues, "/api/initial-values/")
 api.add_resource(SetShares, "/api/set-shares/")
 api.add_resource(CalculateR, "/api/calculate-r/")
-api.add_resource(SetR, "/api/set-r/")
-api.add_resource(SendR, "/api/send-r/")
+api.add_resource(SetSharedRFromParty, "/api/set-shared-r/")
+api.add_resource(SendRToParties, "/api/send-r-to-parties/")
 api.add_resource(CalculateMultiplicativeShare, "/api/calculate-multiplicative-share/")
+api.add_resource(ResonstructSecret, "/api/reconstruct-secret/")
 api.add_resource(Reset, "/api/reset/")
+api.add_resource(FactoryReset, "/api/factory-reset/")
 
 
 @app.route("/")

@@ -18,19 +18,6 @@ def secure_randint(start, end):
             return start + random_int
 
 
-def binary_exponentiation(b, k, n):
-    if k < 0:
-        k = n - 2
-
-    a = 1
-    while k:
-        if k & 1:
-            a = (a * b) % n
-        b = (b * b) % n
-        k >>= 1
-    return a
-
-
 def f(x, coefficients, p, t):
     return sum([coefficients[i] * x**i for i in range(t)]) % p
 
@@ -50,30 +37,6 @@ def Shamir(t, n, k0):
         shares.append((i, f(i, coefficients, p, t)))
 
     return shares, p
-
-
-def computate_coefficients(shares, p):
-    coefficients = []
-
-    for i, (x_i, _) in enumerate(shares):
-        li = 1
-        for j, (x_j, _) in enumerate(shares):
-            if i != j:
-                li *= x_j * binary_exponentiation(x_j - x_i, -1, p)
-                li %= p
-        coefficients.append(li)
-
-    return coefficients
-
-
-def reconstruct_secret(shares, coefficients, p):
-    secret = 0
-
-    for i, (_, y_i) in enumerate(shares):
-        secret += y_i * coefficients[i]
-        secret %= p
-
-    return secret
 
 
 def main():
@@ -103,7 +66,7 @@ def main():
         party = parties[i]
 
         requests.post(
-            f"{party}/api/set-initial-values/",
+            f"{party}/api/initial-values/",
             json={"t": t, "n": n, "id": i + 1, "p": p, "parties": parties},
         )
 
@@ -139,7 +102,7 @@ def main():
     for i in range(n):
         party = parties[i]
 
-        requests.get(f"{party}/api/send-r/")
+        requests.get(f"{party}/api/send-r-to-parties/")
 
         print("r sent from party ", i + 1)
 
@@ -151,40 +114,25 @@ def main():
 
         print("Multiplicative share calculated for party ", i + 1)
 
-    # Sum up the multiplicative shares
-    multiplicative_shares = []
+    # Resonstruct the secret
+    for i in range(n):
+        party = parties[i]
 
-    first_multiplicative_share = requests.get(
-        f"{parties[0]}/api/calculate-multiplicative-share/"
-    ).json()
-    second_multiplicative_share = requests.get(
-        f"{parties[4]}/api/calculate-multiplicative-share/"
-    ).json()
-    multiplicative_shares.append(
-        (
-            first_multiplicative_share["id"],
-            first_multiplicative_share["multiplicative_share"],
+        response = requests.get(f"{party}/api/reconstruct-secret/")
+
+        print(
+            f"Secret reconstructed for party {i + 1} with value {response.json()['secret']}"
         )
-    )
 
-    multiplicative_shares.append(
-        (
-            second_multiplicative_share["id"],
-            second_multiplicative_share["multiplicative_share"],
-        )
-    )
+        assert response.json()["secret"] == first_secret * second_secret % p
 
-    print("Selected Shares for Reconstruction: ", multiplicative_shares)
+    # Get status
+    for i in range(n):
+        party = parties[i]
 
-    coefficients = computate_coefficients(multiplicative_shares, p)
+        response = requests.get(f"{party}/api/status/")
 
-    print("coefficients = ", coefficients)
-
-    secret = reconstruct_secret(multiplicative_shares, coefficients, p)
-
-    print("secret = ", secret % p)
-
-    assert (first_secret * second_secret) % p == round(secret % p)
+        print(f"Status for party {i + 1}: {response.json()['status']}")
 
     # Reset the parties
     for i in range(n):
@@ -193,6 +141,14 @@ def main():
         requests.post(f"{party}/api/reset/")
 
         print("Reset for party ", i + 1)
+
+    # Facotory reset
+    for i in range(n):
+        party = parties[i]
+
+        requests.post(f"{party}/api/factory-reset/")
+
+        print("Factory reset for party ", i + 1)
 
 
 if __name__ == "__main__":

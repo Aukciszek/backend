@@ -1,5 +1,7 @@
+from random import sample
+
 import requests
-from config import state
+from config import State, state
 from flask import abort
 from flask_restful import Resource
 from parsers import (
@@ -8,7 +10,18 @@ from parsers import (
     set_r_args,
     set_shares_args,
 )
-from shamir_functions import binary_exponentiation, inverse_matrix_mod, multiply_matrix
+from shamir_functions import (
+    binary_exponentiation,
+    computate_coefficients,
+    inverse_matrix_mod,
+    multiply_matrix,
+    reconstruct_secret,
+)
+
+
+class Status(Resource):
+    def get(self):
+        return {"state": state["status"].value}, 200
 
 
 class SetInitialValues(Resource):
@@ -36,7 +49,27 @@ class SetInitialValues(Resource):
 
         state["parties"] = parties
 
+        state["status"] = State.INITIALIZED
         return {"result": "Initial values set"}, 201
+
+    def get(self):
+        if (
+            state["t"] is None
+            or state["n"] is None
+            or state["id"] is None
+            or state["p"] is None
+            or state["shared_r"] is None
+            or state["parties"] is None
+        ):
+            abort(400, "Initial values not set.")
+
+        return {
+            "t": state["t"],
+            "n": state["n"],
+            "id": state["id"],
+            "p": state["p"],
+            "parties": state["parties"],
+        }, 200
 
 
 class SetShares(Resource):
@@ -59,6 +92,15 @@ class CalculateR(Resource):
         args = calculate_r_args.parse_args()
         first_client_id = args["first_client_id"]
         second_client_id = args["second_client_id"]
+        first_client_share = next(
+            (y for x, y in state["client_shares"] if x == first_client_id), None
+        )
+        second_client_share = next(
+            (y for x, y in state["client_shares"] if x == second_client_id), None
+        )
+
+        if first_client_share is None or second_client_share is None:
+            abort(400, "Shares not set for one or both clients.")
 
         B = [list(range(1, state["n"] + 1)) for _ in range(state["n"])]
 
@@ -77,35 +119,30 @@ class CalculateR(Resource):
 
         state["r"] = [0] * state["n"]
 
-        first_client_share = next(
-            (y for x, y in state["client_shares"] if x == first_client_id), None
-        )
-        second_client_share = next(
-            (y for x, y in state["client_shares"] if x == second_client_id), None
-        )
         multiplied_shares = (first_client_share * second_client_share) % state["p"]
 
         for i in range(state["n"]):
             state["r"][i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
 
+        state["status"] = State.R_SET
         return {"result": "r calculated"}, 201
 
 
-class SetR(Resource):
+class SetSharedRFromParty(Resource):
     def post(self):
         args = set_r_args.parse_args()
         party_id = args["party_id"]
-        local_shared_r = args["shared_r"]
+        shared_r = args["shared_r"]
 
         if state["shared_r"][party_id - 1] is not None:
             abort(400, "r already set for this party.")
 
-        state["shared_r"][party_id - 1] = local_shared_r
+        state["shared_r"][party_id - 1] = shared_r
 
         return {"result": "r set"}, 201
 
 
-class SendR(Resource):
+class SendRToParties(Resource):
     def get(self):
         for i in range(state["n"]):
             if i == state["id"] - 1:
@@ -113,10 +150,11 @@ class SendR(Resource):
                 continue
 
             requests.post(
-                f"{state["parties"][i]}/api/set-r/",
+                f"{state["parties"][i]}/api/set-shared-r/",
                 json={"party_id": state["id"], "shared_r": state["r"][i]},
             )
 
+        state["status"] = State.R_SHARED
         return {"result": "r sent"}, 200
 
 
@@ -129,13 +167,48 @@ class CalculateMultiplicativeShare(Resource):
             sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
         )
 
+        state["status"] = State.MULT_SHARE_CALCULATED
         return {"result": "Multiplicative share calculated"}, 201
 
     def get(self):
+        if state["multiplicative_share"] is None:
+            abort(400, "Multiplicative share not calculated.")
+
         return {
             "id": state["id"],
             "multiplicative_share": state["multiplicative_share"],
         }, 200
+
+
+class ResonstructSecret(Resource):
+    def get(self):
+        if state["multiplicative_share"] is None:
+            abort(400, "Multiplicative share not calculated.")
+
+        parties = [
+            party for i, party in enumerate(state["parties"]) if i != state["id"] - 1
+        ]
+        selected_parties = sample(parties, state["t"] - 1)
+
+        multiplicative_shares = [(state["id"], state["multiplicative_share"])]
+
+        for party in selected_parties:
+            r = requests.get(f"{party}/api/calculate-multiplicative-share/")
+
+            if r.status_code == 400:
+                abort(
+                    400, "Multiplicative share not calculated for one or more parties."
+                )
+
+            multiplicative_shares.append(
+                (r.json()["id"], r.json()["multiplicative_share"])
+            )
+
+        coefficients = computate_coefficients(multiplicative_shares, state["p"])
+
+        secret = reconstruct_secret(multiplicative_shares, coefficients, state["p"])
+
+        return {"secret": secret % state["p"]}, 200
 
 
 class Reset(Resource):
@@ -143,5 +216,22 @@ class Reset(Resource):
         state["r"] = None
         state["shared_r"] = [None] * state["n"]
         state["multiplicative_share"] = None
+        state["status"] = State.INITIALIZED
 
         return {"result": "Reset successful"}, 200
+
+
+class FactoryReset(Resource):
+    def post(self):
+        state["t"] = None
+        state["n"] = None
+        state["id"] = None
+        state["p"] = None
+        state["parties"] = None
+        state["client_shares"] = []
+        state["shared_r"] = None
+        state["r"] = None
+        state["multiplicative_share"] = None
+        state["status"] = State.NOT_INITIALIZED
+
+        return {"result": "Factory reset successful"}, 200

@@ -106,3 +106,27 @@ def multiply_matrix(matrix1, matrix2, modulus):
             )
 
     return result
+
+
+def computate_coefficients(shares, p):
+    coefficients = []
+
+    for i, (x_i, _) in enumerate(shares):
+        li = 1
+        for j, (x_j, _) in enumerate(shares):
+            if i != j:
+                li *= x_j * binary_exponentiation(x_j - x_i, -1, p)
+                li %= p
+        coefficients.append(li)
+
+    return coefficients
+
+
+def reconstruct_secret(shares, coefficients, p):
+    secret = 0
+
+    for i, (_, y_i) in enumerate(shares):
+        secret += y_i * coefficients[i]
+        secret %= p
+
+    return secret

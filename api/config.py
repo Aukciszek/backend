@@ -6,7 +6,7 @@ parser.add_argument("--port", type=int, required=True, help="Port number")
 args = parser.parse_args()
 
 
-class Status(Enum):
+class STATUS(Enum):
     NOT_INITIALIZED = "Server not initialized"
     INITIALIZED = "Server initialized"
     R_SET = "r is calculated"
@@ -24,5 +24,5 @@ state = {
     "shared_r": None,
     "r": None,
     "multiplicative_share": None,
-    "status": Status.NOT_INITIALIZED,
+    "status": STATUS.NOT_INITIALIZED,
 }

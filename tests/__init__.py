@@ -43,13 +43,16 @@ def main():
     # Shamir's secret sharing
     t = 2
     n = 5
-    first_secret = 3
-    second_secret = 4
+    first_secret = 7
+    second_secret = 2
+    third_secret = 8
     first_shares, p = Shamir(t, n, first_secret)  # First client
     second_shares, _ = Shamir(t, n, second_secret)  # Second client
+    third_shares, _ = Shamir(t, n, third_secret)  # Third client
 
     print("shares_1 = ", first_shares)
     print("shares_2 = ", second_shares)
+    print("shares_3 = ", third_shares)
     print("p = ", p)
 
     # Create parties and set shares (P_0, ..., P_n-1)
@@ -83,6 +86,10 @@ def main():
         requests.post(
             f"{party}/api/set-shares/",
             json={"client_id": 2, "share": second_shares[i][1]},
+        )
+        requests.post(
+            f"{party}/api/set-shares/",
+            json={"client_id": 3, "share": third_shares[i][1]},
         )
 
         print("Shares set for party ", i + 1)
@@ -141,6 +148,57 @@ def main():
         requests.post(f"{party}/api/reset/")
 
         print("Reset for party ", i + 1)
+
+    # Get status
+    for i in range(n):
+        party = parties[i]
+
+        response = requests.get(f"{party}/api/status/")
+
+        print(f"Status for party {i + 1}: {response.json()['status']}")
+
+    #
+    # New multiplication
+    #
+
+    # Calulate r for each party
+    for i in range(n):
+        party = parties[i]
+
+        requests.post(
+            f"{party}/api/calculate-r/",
+            json={"first_client_id": 2, "second_client_id": 3},
+        )
+
+        print("r calculated for party ", i + 1)
+
+    # Send r to each party
+    for i in range(n):
+        party = parties[i]
+
+        requests.get(f"{party}/api/send-r-to-parties/")
+
+        print("r sent from party ", i + 1)
+
+    # Calculate the multiplicative share for each party
+    for i in range(n):
+        party = parties[i]
+
+        requests.put(f"{party}/api/calculate-multiplicative-share/")
+
+        print("Multiplicative share calculated for party ", i + 1)
+
+    # Resonstruct the secret
+    for i in range(n):
+        party = parties[i]
+
+        response = requests.get(f"{party}/api/reconstruct-secret/")
+
+        print(
+            f"Secret reconstructed for party {i + 1} with value {response.json()['secret']}"
+        )
+
+        assert response.json()["secret"] == second_secret * third_secret % p
 
     # Facotory reset
     for i in range(n):

@@ -1,7 +1,7 @@
 from random import sample
 
 import requests
-from config import State, state
+from config import STATUS, state
 from flask import abort
 from flask_restful import Resource
 from parsers import (
@@ -21,7 +21,7 @@ from shamir_functions import (
 
 class Status(Resource):
     def get(self):
-        return {"state": state["status"].value}, 200
+        return {"status": state["status"].value}, 200
 
 
 class SetInitialValues(Resource):
@@ -49,7 +49,7 @@ class SetInitialValues(Resource):
 
         state["parties"] = parties
 
-        state["status"] = State.INITIALIZED
+        state["status"] = STATUS.INITIALIZED
         return {"result": "Initial values set"}, 201
 
     def get(self):
@@ -124,7 +124,7 @@ class CalculateR(Resource):
         for i in range(state["n"]):
             state["r"][i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
 
-        state["status"] = State.R_SET
+        state["status"] = STATUS.R_SET
         return {"result": "r calculated"}, 201
 
 
@@ -154,7 +154,7 @@ class SendRToParties(Resource):
                 json={"party_id": state["id"], "shared_r": state["r"][i]},
             )
 
-        state["status"] = State.R_SHARED
+        state["status"] = STATUS.R_SHARED
         return {"result": "r sent"}, 200
 
 
@@ -167,7 +167,7 @@ class CalculateMultiplicativeShare(Resource):
             sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
         )
 
-        state["status"] = State.MULT_SHARE_CALCULATED
+        state["status"] = STATUS.MULT_SHARE_CALCULATED
         return {"result": "Multiplicative share calculated"}, 201
 
     def get(self):
@@ -216,7 +216,7 @@ class Reset(Resource):
         state["r"] = None
         state["shared_r"] = [None] * state["n"]
         state["multiplicative_share"] = None
-        state["status"] = State.INITIALIZED
+        state["status"] = STATUS.INITIALIZED
 
         return {"result": "Reset successful"}, 200
 
@@ -232,6 +232,6 @@ class FactoryReset(Resource):
         state["shared_r"] = None
         state["r"] = None
         state["multiplicative_share"] = None
-        state["status"] = State.NOT_INITIALIZED
+        state["status"] = STATUS.NOT_INITIALIZED
 
         return {"result": "Factory reset successful"}, 200

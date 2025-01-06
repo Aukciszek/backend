@@ -5,8 +5,9 @@ from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.config import STATUS, state
-from api.parsers import InitialValues, RData, ShareData, SharedRData
+from api.parsers import InitialValues, RData, ShareData, SharedQData, SharedRData
 from api.utils import (
+    Shamir,
     binary_exponentiation,
     computate_coefficients,
     inverse_matrix_mod,
@@ -50,6 +51,7 @@ async def set_initial_values(values: InitialValues):
             "n": values.n,
             "id": values.id,
             "p": values.p,
+            "shared_q": [None] * values.n,
             "shared_r": [None] * values.n,
             "parties": values.parties,
             "client_shares": [],
@@ -79,9 +81,43 @@ async def set_shares(values: ShareData):
     return {"result": "Shares set"}
 
 
-@app.post("/api/calculate-r", status_code=201)
-async def calculate_r(values: RData):
-    is_not_initialized(["r"])
+@app.post("/api/redistribute-q", status_code=201)
+async def redistribute_q():
+    q = Shamir(2 * state["t"], state["n"], 0, state["p"])
+
+    tasks = []
+    for i in range(state["n"]):
+        if i == state["id"] - 1:
+            state["shared_q"][i] = q[i][1]
+            continue
+
+        url = f"{state['parties'][i]}/api/receive-q-from-parties"
+        json_data = {"party_id": state["id"], "shared_q": q[i][1]}
+        tasks.append(send_post_request(url, json_data))
+
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    state["status"] = STATUS.Q_CALC_SHARED
+    return {"result": "q calculated and shared"}
+
+
+@app.post("/api/receive-q-from-parties", status_code=201)
+async def set_received_q(values: SharedQData):
+    if state["shared_q"][values.party_id - 1] is not None:
+        raise HTTPException(status_code=400, detail="q is already set from this party.")
+
+    state["shared_q"][values.party_id - 1] = values.shared_q
+
+    return {"result": "q received"}
+
+
+@app.post("/api/redistribute-r", status_code=201)
+async def redistribute_r(values: RData):
+    for q in state["shared_q"]:
+        if q is None:
+            raise HTTPException(
+                status_code=400, detail="q is not set for one or more parties."
+            )
 
     first_client_share = next(
         (y for x, y in state["client_shares"] if x == values.first_client_id), None
@@ -110,48 +146,50 @@ async def calculate_r(values: RData):
 
     A = multiply_matrix(multiply_matrix(B_inv, P, state["p"]), B, state["p"])
 
-    state["r"] = [0] * state["n"]
+    multiplied_shares = (
+        first_client_share * second_client_share + sum(state["shared_q"])
+    ) % state["p"]
 
-    multiplied_shares = (first_client_share * second_client_share) % state["p"]
+    r = [0] * state["n"]
 
     for i in range(state["n"]):
-        state["r"][i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
+        r[i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
 
-    state["status"] = STATUS.R_SET
-    return {"result": "r calculated"}
-
-
-@app.post("/api/set-shared-r", status_code=201)
-async def set_shared_r(values: SharedRData):
-    if state["shared_r"][values.party_id - 1] is not None:
-        raise HTTPException(status_code=400, detail="r is already shared.")
-
-    state["shared_r"][values.party_id - 1] = values.shared_r
-
-    return {"result": "r set"}
-
-
-@app.put("/api/send-r-to-parties", status_code=201)
-async def send_r_to_parties():
     tasks = []
     for i in range(state["n"]):
         if i == state["id"] - 1:
-            state["shared_r"][i] = state["r"][i]
+            state["shared_r"][i] = r[i]
             continue
 
-        url = f"{state['parties'][i]}/api/set-shared-r"
-        json_data = {"party_id": state["id"], "shared_r": state["r"][i]}
+        url = f"{state['parties'][i]}/api/receive-r-from-parties"
+        json_data = {"party_id": state["id"], "shared_r": r[i]}
         tasks.append(send_post_request(url, json_data))
 
     await asyncio.gather(*tasks, return_exceptions=True)
 
-    state["status"] = STATUS.R_SHARED
-    return {"result": "r sent"}
+    state["status"] = STATUS.R_CALC_SHARED
+    return {"result": "r calculated and shared"}
+
+
+@app.post("/api/receive-r-from-parties", status_code=201)
+async def set_received_r(values: SharedRData):
+    if state["shared_r"][values.party_id - 1] is not None:
+        raise HTTPException(status_code=400, detail="r is already set from this party.")
+
+    state["shared_r"][values.party_id - 1] = values.shared_r
+
+    return {"result": "r received"}
 
 
 @app.put("/api/calculate-multiplicative-share", status_code=201)
 async def calculate_multiplicative_share():
     is_not_initialized(["multiplicative_share"])
+
+    for r in state["shared_r"]:
+        if r is None:
+            raise HTTPException(
+                status_code=400, detail="r is not set for one or more parties."
+            )
 
     state["multiplicative_share"] = (
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
@@ -199,7 +237,8 @@ async def return_secret():
 
 @app.post("/api/reset", status_code=201)
 async def reset():
-    reset_state(["r", "multiplicative_share"])
+    reset_state(["multiplicative_share"])
+    state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
     state["status"] = STATUS.INITIALIZED
 
@@ -215,8 +254,7 @@ async def factory_reset():
             "id",
             "p",
             "parties",
-            "shared_r",
-            "r",
+            "shared_q" "shared_r",
             "client_shares",
             "multiplicative_share",
         ]

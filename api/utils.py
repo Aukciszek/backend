@@ -1,4 +1,5 @@
 import copy
+import os
 
 import aiohttp
 from fastapi import HTTPException
@@ -191,3 +192,37 @@ def reconstruct_secret(shares, coefficients, p):
         secret %= p
 
     return secret
+
+
+def secure_randint(start, end):
+    """Generate a secure random integer between start and end (inclusive) using os.urandom."""
+    if start > end:
+        raise ValueError("start must be less than or equal to end")
+
+    range_size = end - start + 1
+    num_bytes = (range_size - 1).bit_length() // 8 + 1
+    mask = (1 << (num_bytes * 8)) - 1
+
+    while True:
+        random_int = int.from_bytes(os.urandom(num_bytes), "big") & mask
+        if random_int < range_size:
+            return start + random_int
+
+
+def f(x, coefficients, p, t):
+    return sum([coefficients[i] * x**i for i in range(t)]) % p
+
+
+def Shamir(t, n, k0, p):
+    coefficients = [secure_randint(0, p - 1) for _ in range(t)]
+    coefficients[0] = k0
+
+    if coefficients[-1] == 0:
+        coefficients[-1] = secure_randint(1, p - 1)
+
+    shares = []
+
+    for i in range(1, n + 1):
+        shares.append((i, f(i, coefficients, p, t)))
+
+    return shares

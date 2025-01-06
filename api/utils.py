@@ -1,5 +1,56 @@
 import copy
 
+import aiohttp
+from fastapi import HTTPException
+
+from api.config import state
+
+
+def is_not_initialized(required_keys):
+    for key in required_keys:
+        if state[key] is not None:
+            raise HTTPException(status_code=400, detail=f"{key} is initialized.")
+
+
+def is_initialized(required_keys):
+    for key in required_keys:
+        if state[key] is None:
+            raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
+
+
+async def send_post_request(url, json_data):
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(url, json=json_data) as response:
+                if response.status != 201:
+                    raise ValueError(
+                        f"Error: Received status code {response.status} for URL {url}"
+                    )
+        except aiohttp.ClientError as e:
+            raise ValueError(f"HTTP error occurred for {url}: {e}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error occurred for {url}: {e}")
+
+
+async def send_get_request(url):
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    raise ValueError(
+                        f"Error: Received status code {response.status} for URL {url}"
+                    )
+                return await response.json()
+        except aiohttp.ClientError as e:
+            raise ValueError(f"HTTP error occurred for {url}: {e}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error occurred for {url}: {e}")
+
+
+def reset_state(keys_to_reset):
+    for key in keys_to_reset:
+        state[key] = None
+
 
 def binary_exponentiation(b, k, n):
     if k < 0:

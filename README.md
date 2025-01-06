@@ -5,20 +5,20 @@
 To start the backend, run the following command:
 
 ```bash
-poetry run python api/__init__.py --port=PORT
+poetry run uvicorn api.__init__:app --port PORT
 ```
 
 You need to run this command in five different terminals, each with a different port. For example:
 
-Terminal 1: `poetry run python api/__init__.py --port=5000`
+Terminal 1: `poetry run uvicorn api.__init__:app --port 5000`
 
-Terminal 2: `poetry run python api/__init__.py --port=5001`
+Terminal 2: `poetry run uvicorn api.__init__:app --port 5001`
 
-Terminal 3: `poetry run python api/__init__.py --port=5002`
+Terminal 3: `poetry run uvicorn api.__init__:app --port 5003`
 
-Terminal 4: `poetry run python api/__init__.py --port=5003`
+Terminal 4: `poetry run uvicorn api.__init__:app --port 5004`
 
-Terminal 5: `poetry run python api/__init__.py --port=5004`
+Terminal 5: `poetry run uvicorn api.__init__:app --port 5005`
 
 ## How to Test the Backend
 

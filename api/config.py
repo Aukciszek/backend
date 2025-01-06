@@ -1,9 +1,4 @@
-import argparse
 from enum import Enum
-
-parser = argparse.ArgumentParser(description="Aukciszek API")
-parser.add_argument("--port", type=int, required=True, help="Port number")
-args = parser.parse_args()
 
 
 class STATUS(Enum):
@@ -20,7 +15,7 @@ state = {
     "id": None,
     "p": None,
     "parties": None,
-    "client_shares": [],
+    "client_shares": None,
     "shared_r": None,
     "r": None,
     "multiplicative_share": None,

@@ -101,7 +101,7 @@ async def main():
         # Factory reset
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/factory-reset/"))
+            tasks.append(send_post(session, f"{party}/api/factory-reset"))
         await asyncio.gather(*tasks)
         print("Factory reset for all parties")
 
@@ -111,7 +111,7 @@ async def main():
             tasks.append(
                 send_post(
                     session,
-                    f"{party}/api/initial-values/",
+                    f"{party}/api/initial-values",
                     json_data={"t": t, "n": n, "id": i + 1, "p": p, "parties": parties},
                 )
             )
@@ -127,7 +127,7 @@ async def main():
                 tasks.append(
                     send_post(
                         session,
-                        f"{party}/api/set-shares/",
+                        f"{party}/api/set-shares",
                         json_data={"client_id": client_id, "share": shares[i][1]},
                     )
                 )
@@ -140,7 +140,7 @@ async def main():
             tasks.append(
                 send_post(
                     session,
-                    f"{party}/api/calculate-r/",
+                    f"{party}/api/calculate-r",
                     json_data={"first_client_id": 1, "second_client_id": 2},
                 )
             )
@@ -150,7 +150,7 @@ async def main():
         # Send r to each party
         tasks = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/send-r-to-parties/"))
+            tasks.append(send_put(session, f"{party}/api/send-r-to-parties"))
         await asyncio.gather(*tasks)
         print("r sent to all parties")
 
@@ -158,27 +158,25 @@ async def main():
         tasks = []
         for party in parties:
             tasks.append(
-                send_put(session, f"{party}/api/calculate-multiplicative-share/")
+                send_put(session, f"{party}/api/calculate-multiplicative-share")
             )
         await asyncio.gather(*tasks)
         print("Multiplicative shares calculated for all parties")
 
         # Reconstruct the secret
         tasks = []
-        secrets = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/reconstruct-secret/"))
+            tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
         results = await asyncio.gather(*tasks)
         for i, result in enumerate(results):
             secret = result.get("secret")
             print(f"Secret reconstructed for party {i + 1} with value {secret}")
-            secrets.append(secret)
             assert secret == first_secret * second_secret % p
 
         # Get status
         tasks = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/status/"))
+            tasks.append(send_get(session, f"{party}/api/status"))
         results = await asyncio.gather(*tasks)
         for i, result in enumerate(results):
             print(f"Status for party {i + 1}: {result.get('status')}")
@@ -186,14 +184,14 @@ async def main():
         # Reset the parties
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/reset/"))
+            tasks.append(send_post(session, f"{party}/api/reset"))
         await asyncio.gather(*tasks)
         print("Reset for all parties")
 
         # Get status
         tasks = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/status/"))
+            tasks.append(send_get(session, f"{party}/api/status"))
         results = await asyncio.gather(*tasks)
         for i, result in enumerate(results):
             print(f"Status for party {i + 1}: {result.get('status')}")
@@ -208,7 +206,7 @@ async def main():
             tasks.append(
                 send_post(
                     session,
-                    f"{party}/api/calculate-r/",
+                    f"{party}/api/calculate-r",
                     json_data={"first_client_id": 2, "second_client_id": 3},
                 )
             )
@@ -218,7 +216,7 @@ async def main():
         # Send r to each party
         tasks = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/send-r-to-parties/"))
+            tasks.append(send_put(session, f"{party}/api/send-r-to-parties"))
         await asyncio.gather(*tasks)
         print("r sent to all parties")
 
@@ -226,34 +224,32 @@ async def main():
         tasks = []
         for party in parties:
             tasks.append(
-                send_put(session, f"{party}/api/calculate-multiplicative-share/")
+                send_put(session, f"{party}/api/calculate-multiplicative-share")
             )
         await asyncio.gather(*tasks)
         print("Multiplicative shares calculated for all parties")
 
         # Reconstruct the secret
         tasks = []
-        secrets = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/reconstruct-secret/"))
+            tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
         results = await asyncio.gather(*tasks)
         for i, result in enumerate(results):
             secret = result.get("secret")
             print(f"Secret reconstructed for party {i + 1} with value {secret}")
-            secrets.append(secret)
             assert secret == second_secret * third_secret % p
 
         # Factory reset
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/factory-reset/"))
+            tasks.append(send_post(session, f"{party}/api/factory-reset"))
         await asyncio.gather(*tasks)
         print("Factory reset for all parties")
 
         # Get status
         tasks = []
         for party in parties:
-            tasks.append(send_get(session, f"{party}/api/status/"))
+            tasks.append(send_get(session, f"{party}/api/status"))
         results = await asyncio.gather(*tasks)
         for i, result in enumerate(results):
             print(f"Status for party {i + 1}: {result.get('status')}")

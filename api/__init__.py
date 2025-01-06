@@ -143,7 +143,7 @@ async def send_r_to_parties():
         json_data = {"party_id": state["id"], "shared_r": state["r"][i]}
         tasks.append(send_post_request(url, json_data))
 
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks, return_exceptions=True)
 
     state["status"] = STATUS.R_SHARED
     return {"result": "r sent"}
@@ -186,11 +186,6 @@ async def return_secret():
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        if isinstance(result, Exception):
-            raise HTTPException(
-                status_code=400,
-                detail="Multiplicative share not calculated for one or more parties.",
-            )
         multiplicative_shares.append((result["id"], result["multiplicative_share"]))
 
     multiplicative_shares.append((state["id"], state["multiplicative_share"]))

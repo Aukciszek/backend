@@ -23,13 +23,18 @@ async def send_post_request(url, json_data):
         try:
             async with session.post(url, json=json_data) as response:
                 if response.status != 201:
-                    raise ValueError(
-                        f"Error: Received status code {response.status} for URL {url}"
+                    raise HTTPException(
+                        status_code=response.status,
+                        detail=f"Error: Received status code {response.status} for URL {url}",
                     )
         except aiohttp.ClientError as e:
-            raise ValueError(f"HTTP error occurred for {url}: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"HTTP error occurred for {url}: {e}"
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error occurred for {url}: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
+            )
 
 
 async def send_get_request(url):
@@ -37,14 +42,19 @@ async def send_get_request(url):
         try:
             async with session.get(url) as response:
                 if response.status != 200:
-                    raise ValueError(
-                        f"Error: Received status code {response.status} for URL {url}"
+                    raise HTTPException(
+                        status_code=response.status,
+                        detail=f"Error: Received status code {response.status} for URL {url}",
                     )
                 return await response.json()
         except aiohttp.ClientError as e:
-            raise ValueError(f"HTTP error occurred for {url}: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"HTTP error occurred for {url}: {e}"
+            )
         except Exception as e:
-            raise ValueError(f"Unexpected error occurred for {url}: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
+            )
 
 
 def reset_state(keys_to_reset):

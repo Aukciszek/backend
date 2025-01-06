@@ -2,6 +2,7 @@ import asyncio
 from random import sample
 
 from fastapi import FastAPI, HTTPException
+from starlette.middleware.cors import CORSMiddleware
 
 from api.config import STATUS, state
 from api.parsers import InitialValues, RData, ShareData, SharedRData
@@ -19,6 +20,14 @@ from api.utils import (
 )
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/api/status", status_code=200)

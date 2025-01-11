@@ -42,8 +42,10 @@ async def send_post(session, url, json_data=None):
     """Send a POST request asynchronously."""
     try:
         async with session.post(url, json=json_data) as response:
+            message = await response.json()
+
             if response.status != 201:
-                print(f"Failed POST request to {url}: {response.status}")
+                print(f"Failed POST request to {url}: {message}")
     except Exception as e:
         print(f"Error during POST request to {url}: {e}")
 
@@ -52,8 +54,10 @@ async def send_get(session, url):
     """Send a GET request asynchronously."""
     try:
         async with session.get(url) as response:
+            message = await response.json()
+
             if response.status != 200:
-                print(f"Failed GET request to {url}: {response.status}")
+                print(f"Failed POST request to {url}: {message}")
             return await response.json()
     except Exception as e:
         print(f"Error during GET request to {url}: {e}")
@@ -64,8 +68,10 @@ async def send_put(session, url, json_data=None):
     """Send a PUT request asynchronously."""
     try:
         async with session.put(url, json=json_data) as response:
+            message = await response.json()
+
             if response.status != 201:
-                print(f"Failed PUT request to {url}: {response.status}")
+                print(f"Failed POST request to {url}: {message}")
     except Exception as e:
         print(f"Error during PUT request to {url}: {e}")
 

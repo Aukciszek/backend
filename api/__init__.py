@@ -11,13 +11,14 @@ from api.utils import (
     binary_exponentiation,
     computate_coefficients,
     inverse_matrix_mod,
-    is_initialized,
-    is_not_initialized,
     multiply_matrix,
     reconstruct_secret,
     reset_state,
     send_get_request,
     send_post_request,
+    validate_initialized,
+    validate_initialized_array,
+    validate_not_initialized,
 )
 
 app = FastAPI()
@@ -38,7 +39,9 @@ async def get_status():
 
 @app.post("/api/initial-values", status_code=201)
 async def set_initial_values(values: InitialValues):
-    is_not_initialized(["t", "n", "id", "p", "shared_r", "parties", "client_shares"])
+    validate_not_initialized(
+        ["t", "n", "id", "p", "shared_q", "shared_r", "parties", "client_shares"]
+    )
 
     if len(values.parties) != values.n:
         raise HTTPException(
@@ -64,7 +67,10 @@ async def set_initial_values(values: InitialValues):
 
 @app.get("/api/initial-values", status_code=200)
 async def get_initial_values():
-    is_initialized(["t", "n", "id", "p", "shared_r", "parties"])
+    if state["status"] == STATUS.NOT_INITIALIZED:
+        raise HTTPException(status_code=400, detail="Server is not initialized.")
+
+    validate_initialized(["t", "n", "p", "parties"])
 
     return {
         "t": state["t"],
@@ -76,6 +82,16 @@ async def get_initial_values():
 
 @app.post("/api/set-shares", status_code=201)
 async def set_shares(values: ShareData):
+    validate_initialized(["client_shares"])
+
+    if (
+        next((x for x, _ in state["client_shares"] if x == values.client_id), None)
+        is not None
+    ):
+        raise HTTPException(
+            status_code=400, detail="Shares already set for this client."
+        )
+
     state["client_shares"].append((values.client_id, values.share))
 
     return {"result": "Shares set"}
@@ -83,6 +99,13 @@ async def set_shares(values: ShareData):
 
 @app.post("/api/redistribute-q", status_code=201)
 async def redistribute_q():
+    if state["status"] != STATUS.INITIALIZED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in initialized state."
+        )
+
+    validate_initialized(["t", "n", "p", "id", "parties", "shared_q"])
+
     q = Shamir(2 * state["t"], state["n"], 0, state["p"])
 
     tasks = []
@@ -103,6 +126,11 @@ async def redistribute_q():
 
 @app.post("/api/receive-q-from-parties", status_code=201)
 async def set_received_q(values: SharedQData):
+    validate_initialized(["shared_q"])
+
+    if values.party_id > len(state["shared_q"]) or values.party_id < 1:
+        raise HTTPException(status_code=400, detail="Invalid party id.")
+
     if state["shared_q"][values.party_id - 1] is not None:
         raise HTTPException(status_code=400, detail="q is already set from this party.")
 
@@ -113,11 +141,21 @@ async def set_received_q(values: SharedQData):
 
 @app.post("/api/redistribute-r", status_code=201)
 async def redistribute_r(values: RData):
-    for q in state["shared_q"]:
-        if q is None:
-            raise HTTPException(
-                status_code=400, detail="q is not set for one or more parties."
-            )
+    if state["status"] != STATUS.Q_CALC_SHARED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in q calculated and shared state."
+        )
+
+    validate_initialized(["client_shares", "n", "p", "t", "id", "shared_r", "parties"])
+    validate_initialized_array(["shared_q"])
+
+    if len(state["client_shares"]) < 2:
+        raise HTTPException(
+            status_code=400, detail="At least two client shares must be configured."
+        )
+
+    if values.first_client_id == values.second_client_id:
+        raise HTTPException(status_code=400, detail="Client IDs must be different.")
 
     first_client_share = next(
         (y for x, y in state["client_shares"] if x == values.first_client_id), None
@@ -173,6 +211,11 @@ async def redistribute_r(values: RData):
 
 @app.post("/api/receive-r-from-parties", status_code=201)
 async def set_received_r(values: SharedRData):
+    validate_initialized(["shared_r"])
+
+    if values.party_id > len(state["shared_r"]) or values.party_id < 1:
+        raise HTTPException(status_code=400, detail="Invalid party id.")
+
     if state["shared_r"][values.party_id - 1] is not None:
         raise HTTPException(status_code=400, detail="r is already set from this party.")
 
@@ -183,13 +226,14 @@ async def set_received_r(values: SharedRData):
 
 @app.put("/api/calculate-multiplicative-share", status_code=201)
 async def calculate_multiplicative_share():
-    is_not_initialized(["multiplicative_share"])
+    if state["status"] != STATUS.R_CALC_SHARED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in r calculated and shared state."
+        )
 
-    for r in state["shared_r"]:
-        if r is None:
-            raise HTTPException(
-                status_code=400, detail="r is not set for one or more parties."
-            )
+    validate_not_initialized(["multiplicative_share"])
+    validate_initialized(["n", "p"])
+    validate_initialized_array(["shared_r"])
 
     state["multiplicative_share"] = (
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
@@ -199,16 +243,22 @@ async def calculate_multiplicative_share():
     return {"result": "Multiplicative share calculated"}
 
 
-@app.get("/api/calculate-multiplicative-share", status_code=200)
+@app.get("/api/return-multiplicative-share", status_code=200)
 async def get_multiplicative_share():
-    is_initialized(["multiplicative_share"])
+    validate_initialized(["multiplicative_share", "id"])
 
     return {"id": state["id"], "multiplicative_share": state["multiplicative_share"]}
 
 
 @app.get("/api/reconstruct-secret", status_code=200)
 async def return_secret():
-    is_initialized(["multiplicative_share"])
+    if state["status"] != STATUS.MULT_SHARE_CALCULATED:
+        raise HTTPException(
+            status_code=400,
+            detail="Server must be in multiplicative share calculated state.",
+        )
+
+    validate_initialized(["multiplicative_share", "parties", "id", "t", "p"])
 
     parties = [
         party for i, party in enumerate(state["parties"]) if i != state["id"] - 1
@@ -218,7 +268,7 @@ async def return_secret():
     multiplicative_shares = []
     tasks = []
     for party in selected_parties:
-        url = f"{party}/api/calculate-multiplicative-share"
+        url = f"{party}/api/return-multiplicative-share"
         tasks.append(send_get_request(url))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -237,6 +287,11 @@ async def return_secret():
 
 @app.post("/api/reset", status_code=201)
 async def reset():
+    if state["status"] == STATUS.NOT_INITIALIZED:
+        raise HTTPException(status_code=400, detail="Server is not initialized.")
+
+    validate_initialized(["n"])
+
     reset_state(["multiplicative_share"])
     state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
@@ -254,7 +309,8 @@ async def factory_reset():
             "id",
             "p",
             "parties",
-            "shared_q" "shared_r",
+            "shared_q",
+            "shared_r",
             "client_shares",
             "multiplicative_share",
         ]

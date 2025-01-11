@@ -7,16 +7,29 @@ from fastapi import HTTPException
 from api.config import state
 
 
-def is_not_initialized(required_keys):
+def validate_not_initialized(required_keys):
     for key in required_keys:
         if state[key] is not None:
             raise HTTPException(status_code=400, detail=f"{key} is initialized.")
 
 
-def is_initialized(required_keys):
+def validate_initialized(required_keys):
     for key in required_keys:
         if state[key] is None:
             raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
+
+
+def validate_initialized_array(required_keys):
+    for key in required_keys:
+        if state[key] is None:
+            raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
+
+        for i, value in enumerate(state[key]):
+            if value is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"The element at '{key}[{i}]' is not initialized.",
+                )
 
 
 async def send_post_request(url, json_data):
@@ -102,7 +115,10 @@ def inverse_matrix_mod(matrix_dc, modulus):
             (k for k in range(i, n) if matrix_dc[k][i] % modulus != 0), -1
         )
         if non_zero_index == -1:
-            raise ValueError("Matrix is not invertible under this modulus.")
+            raise HTTPException(
+                status_code=400,
+                detail="Matrix is not invertible mod p.",
+            )
 
         # Swap rows i and non_zero_index in both matrix and identity_matrix
         matrix_dc[i], matrix_dc[non_zero_index] = (
@@ -157,7 +173,10 @@ def multiply_matrix(matrix1, matrix2, modulus):
     l = len(matrix2)
 
     if len(matrix1[0]) != l:
-        raise ValueError("Matrix dimensions do not match.")
+        raise HTTPException(
+            status_code=400,
+            detail="Matrix dimensions do not match for multiplication.",
+        )
 
     result = [[0 for _ in range(m)] for _ in range(n)]
 
@@ -197,7 +216,10 @@ def reconstruct_secret(shares, coefficients, p):
 def secure_randint(start, end):
     """Generate a secure random integer between start and end (inclusive) using os.urandom."""
     if start > end:
-        raise ValueError("start must be less than or equal to end")
+        raise HTTPException(
+            status_code=400,
+            detail="Start value must be less than or equal to end value.",
+        )
 
     range_size = end - start + 1
     num_bytes = (range_size - 1).bit_length() // 8 + 1

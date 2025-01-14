@@ -43,6 +43,12 @@ async def set_initial_values(values: InitialValues):
         ["t", "n", "id", "p", "shared_q", "shared_r", "parties", "client_shares"]
     )
 
+    if values.t <= 0 or values.n <= 0 or 2 * values.t + 1 != values.n:
+        raise HTTPException(status_code=400, detail="Invalid t or n values.")
+
+    if values.p <= 0:
+        raise HTTPException(status_code=400, detail="Prime number must be positive.")
+
     if len(values.parties) != values.n:
         raise HTTPException(
             status_code=400, detail="Number of parties does not match n."

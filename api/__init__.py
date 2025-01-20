@@ -46,7 +46,7 @@ async def set_initial_values(values: InitialValues):
     if values.t <= 0 or values.n <= 0 or 2 * values.t + 1 != values.n:
         raise HTTPException(status_code=400, detail="Invalid t or n values.")
 
-    if values.p <= 0:
+    if int(values.p,16) <= 0:
         raise HTTPException(status_code=400, detail="Prime number must be positive.")
 
     if len(values.parties) != values.n:
@@ -59,7 +59,7 @@ async def set_initial_values(values: InitialValues):
             "t": values.t,
             "n": values.n,
             "id": values.id,
-            "p": values.p,
+            "p": int(values.p,16),
             "shared_q": [None] * values.n,
             "shared_r": [None] * values.n,
             "parties": values.parties,
@@ -81,7 +81,7 @@ async def get_initial_values():
     return {
         "t": state["t"],
         "n": state["n"],
-        "p": state["p"],
+        "p": hex(state["p"]),
         "parties": state["parties"],
     }
 
@@ -98,7 +98,7 @@ async def set_shares(values: ShareData):
             status_code=400, detail="Shares already set for this client."
         )
 
-    state["client_shares"].append((values.client_id, values.share))
+    state["client_shares"].append((values.client_id, int(values.share)))
 
     return {"result": "Shares set"}
 

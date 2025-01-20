@@ -5,13 +5,13 @@ class InitialValues(BaseModel):
     t: int
     n: int
     id: int
-    p: int
+    p: str
     parties: list[str]
 
 
 class ShareData(BaseModel):
     client_id: int
-    share: int
+    share: str
 
 
 class RData(BaseModel):

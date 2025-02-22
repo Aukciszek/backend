@@ -19,6 +19,11 @@ class RData(BaseModel):
     second_client_id: int
 
 
+class AdditionData(BaseModel):
+    first_client_id: int
+    second_client_id: int
+
+
 class SharedQData(BaseModel):
     party_id: int
     shared_q: int

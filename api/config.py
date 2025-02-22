@@ -6,7 +6,7 @@ class STATUS(Enum):
     INITIALIZED = "Server initialized"
     Q_CALC_SHARED = "Calculated and shared q"
     R_CALC_SHARED = "Calculated and shared r"
-    MULT_SHARE_CALCULATED = "Multiplicative share calculated"
+    SHARE_CALCULATED = "Share calculated"
 
 
 state = {

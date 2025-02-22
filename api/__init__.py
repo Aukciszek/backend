@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.config import STATUS, state
-from api.parsers import InitialValues, RData, ShareData, SharedQData, SharedRData
+from api.parsers import InitialValues, RData, ShareData, SharedQData, SharedRData, AdditionData
 from api.utils import (
     Shamir,
     binary_exponentiation,
@@ -237,34 +237,58 @@ async def calculate_multiplicative_share():
             status_code=400, detail="Server must be in r calculated and shared state."
         )
 
-    validate_not_initialized(["multiplicative_share"])
+    validate_not_initialized(["calculated_share"])
     validate_initialized(["n", "p"])
     validate_initialized_array(["shared_r"])
 
-    state["multiplicative_share"] = (
+    state["calculated_share"] = (
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
     )
 
-    state["status"] = STATUS.MULT_SHARE_CALCULATED
+    state["status"] = STATUS.SHARE_CALCULATED
     return {"result": "Multiplicative share calculated"}
 
+@app.post("/api/addition", status_code=201)
+async def addition(values: AdditionData):
+    if state["status"] != STATUS.INITIALIZED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in initialized state."
+        )
 
-@app.get("/api/return-multiplicative-share", status_code=200)
-async def get_multiplicative_share():
-    validate_initialized(["multiplicative_share", "id"])
+    first_client_share = next(
+        (y for x, y in state["client_shares"] if x == values.first_client_id), None
+    )
+    second_client_share = next(
+        (y for x, y in state["client_shares"] if x == values.second_client_id), None
+    )
 
-    return {"id": state["id"], "multiplicative_share": state["multiplicative_share"]}
+    if first_client_share is None or second_client_share is None:
+        raise HTTPException(
+            status_code=400, detail="Shares not set for one or both clients."
+        )
+    
+    state["calculated_share"] = first_client_share + second_client_share
+    
+    state["status"] = STATUS.SHARE_CALCULATED
+    return {"result": "Additive share calculated"}
+
+
+@app.get("/api/return-calculated-share", status_code=200)
+async def get_calculated_share():
+    validate_initialized(["calculated_share", "id"])
+
+    return {"id": state["id"], "calculated_share": state["calculated_share"]}
 
 
 @app.get("/api/reconstruct-secret", status_code=200)
 async def return_secret():
-    if state["status"] != STATUS.MULT_SHARE_CALCULATED:
+    if state["status"] != STATUS.SHARE_CALCULATED:
         raise HTTPException(
             status_code=400,
-            detail="Server must be in multiplicative share calculated state.",
+            detail="Server must be in share calculated state.",
         )
 
-    validate_initialized(["multiplicative_share", "parties", "id", "t", "p"])
+    validate_initialized(["calculated_share", "parties", "id", "t", "p"])
 
     parties = [
         party for i, party in enumerate(state["parties"]) if i != state["id"] - 1
@@ -274,22 +298,22 @@ async def return_secret():
     multiplicative_shares = []
     tasks = []
     for party in selected_parties:
-        url = f"{party}/api/return-multiplicative-share"
+        url = f"{party}/api/return-calculated-share"
         tasks.append(send_get_request(url))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        multiplicative_shares.append((result["id"], result["multiplicative_share"]))
+        multiplicative_shares.append((result["id"], result["calculated_share"]))
 
-    multiplicative_shares.append((state["id"], state["multiplicative_share"]))
+    multiplicative_shares.append((state["id"], state["calculated_share"]))
 
     coefficients = computate_coefficients(multiplicative_shares, state["p"])
 
     secret = reconstruct_secret(multiplicative_shares, coefficients, state["p"])
 
     return {"secret": secret % state["p"]}
-
+    
 
 @app.post("/api/reset", status_code=201)
 async def reset():
@@ -298,7 +322,7 @@ async def reset():
 
     validate_initialized(["n"])
 
-    reset_state(["multiplicative_share"])
+    reset_state(["calculated_share"])
     state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
     state["status"] = STATUS.INITIALIZED
@@ -318,7 +342,7 @@ async def factory_reset():
             "shared_q",
             "shared_r",
             "client_shares",
-            "multiplicative_share",
+            "calculated_share",
         ]
     )
 

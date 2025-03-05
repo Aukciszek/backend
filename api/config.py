@@ -16,8 +16,10 @@ state = {
     "p": None,
     "parties": None,
     "client_shares": None,
+    "random_number_bit_shares": None,
+    "random_number_share": None,
     "shared_q": None,
     "shared_r": None,
-    "multiplicative_share": None,
+    "calculated_share": None,
     "status": STATUS.NOT_INITIALIZED,
 }

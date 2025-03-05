@@ -76,6 +76,16 @@ def reset_state(keys_to_reset):
         state[key] = None
 
 
+binary_internal = lambda n: n > 0 and [n & 1] + binary_internal(n >> 1) or []
+
+
+def binary(n):
+    if n == 0:
+        return [0]
+    else:
+        return binary_internal(n)
+
+
 def binary_exponentiation(b, k, n):
     if k < 0:
         k = n - 2

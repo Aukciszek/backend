@@ -5,9 +5,20 @@ from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.config import STATUS, state
-from api.parsers import InitialValues, RData, ShareData, SharedQData, SharedRData, AdditionData
+from api.parsers import (
+    AComparisonData,
+    AdditionData,
+    InitialValues,
+    RandomNumberBitSharesData,
+    RData,
+    ShareData,
+    SharedQData,
+    SharedRData,
+    ZComparisonData,
+)
 from api.utils import (
     Shamir,
+    binary,
     binary_exponentiation,
     computate_coefficients,
     inverse_matrix_mod,
@@ -46,7 +57,7 @@ async def set_initial_values(values: InitialValues):
     if values.t <= 0 or values.n <= 0 or 2 * values.t + 1 != values.n:
         raise HTTPException(status_code=400, detail="Invalid t or n values.")
 
-    if int(values.p,16) <= 0:
+    if int(values.p, 16) <= 0:
         raise HTTPException(status_code=400, detail="Prime number must be positive.")
 
     if len(values.parties) != values.n:
@@ -59,11 +70,12 @@ async def set_initial_values(values: InitialValues):
             "t": values.t,
             "n": values.n,
             "id": values.id,
-            "p": int(values.p,16),
+            "p": int(values.p, 16),
             "shared_q": [None] * values.n,
             "shared_r": [None] * values.n,
             "parties": values.parties,
             "client_shares": [],
+            "random_number_bit_shares": [],
             "status": STATUS.INITIALIZED,
         }
     )
@@ -101,6 +113,84 @@ async def set_shares(values: ShareData):
     state["client_shares"].append((values.client_id, int(values.share)))
 
     return {"result": "Shares set"}
+
+
+@app.post("/api/set-random-number-bit-shares", status_code=201)
+async def set_random_number_bit_shares(values: RandomNumberBitSharesData):
+    state["random_number_bit_shares"] = values.shares
+
+
+@app.post("/api/calculate-a-comparison", status_code=201)
+async def calculate_a_comparison(values: AComparisonData):
+    if len(state["client_shares"]) < 2:
+        raise HTTPException(
+            status_code=400, detail="At least two client shares must be configured."
+        )
+
+    if values.first_client_id == values.second_client_id:
+        raise HTTPException(status_code=400, detail="Client IDs must be different.")
+
+    first_client_share = next(
+        (y for x, y in state["client_shares"] if x == values.first_client_id), None
+    )
+    second_client_share = next(
+        (y for x, y in state["client_shares"] if x == values.second_client_id), None
+    )
+
+    if first_client_share is None or second_client_share is None:
+        raise HTTPException(
+            status_code=400, detail="Shares not set for one or both clients."
+        )
+
+    def multiply_bit_shares_by_powers_of_2(shares):
+        multiplied_shares = []
+        for i in range(len(shares)):
+            multiplied_shares.append(2**i * shares[i])
+        return multiplied_shares
+
+    def add_multiplied_shares(multiplied_shares):
+        share_r = multiplied_shares[0]
+        for i in range(1, len(multiplied_shares)):
+            share_r += multiplied_shares[i]
+        return share_r
+
+    pom = multiply_bit_shares_by_powers_of_2(state["random_number_bit_shares"])
+    share_of_random_number = add_multiplied_shares(pom)
+
+    state["random_number_share"] = share_of_random_number
+    state["calculated_share"] = (
+        pow(2, values.l + values.k + 2)
+        - share_of_random_number
+        + pow(2, values.l)
+        + first_client_share
+        - second_client_share
+    )
+
+    state["status"] = STATUS.SHARE_CALCULATED
+    return {"result": "'A' for comparison calculated"}
+
+
+@app.post("/api/calculate-z-comparison", status_code=201)
+async def calculate_z(values: ZComparisonData):
+    a_bin = binary(values.opened_a)
+    r_prim_bin = binary(state["random_number_share"])
+
+    while len(a_bin) < values.l + values.k + 2:
+        a_bin.append(0)
+
+    while len(r_prim_bin) < values.l + values.k + 2:
+        r_prim_bin.append(0)
+
+    zZ = []
+
+    for i in range(values.l):
+        zZ.append((a_bin[i] ^ r_prim_bin[i], a_bin[i]))
+
+    zZ = list(reversed(zZ))
+    zZ.append((0, 0))
+
+    print("zZ: ", zZ)
+    return {"result": "'Z' for comparison calculated"}
 
 
 @app.post("/api/redistribute-q", status_code=201)
@@ -248,6 +338,7 @@ async def calculate_multiplicative_share():
     state["status"] = STATUS.SHARE_CALCULATED
     return {"result": "Multiplicative share calculated"}
 
+
 @app.post("/api/addition", status_code=201)
 async def addition(values: AdditionData):
     if state["status"] != STATUS.INITIALIZED:
@@ -266,9 +357,9 @@ async def addition(values: AdditionData):
         raise HTTPException(
             status_code=400, detail="Shares not set for one or both clients."
         )
-    
+
     state["calculated_share"] = first_client_share + second_client_share
-    
+
     state["status"] = STATUS.SHARE_CALCULATED
     return {"result": "Additive share calculated"}
 
@@ -295,7 +386,7 @@ async def return_secret():
     ]
     selected_parties = sample(parties, state["t"] - 1)
 
-    multiplicative_shares = []
+    calculated_shares = []
     tasks = []
     for party in selected_parties:
         url = f"{party}/api/return-calculated-share"
@@ -304,16 +395,18 @@ async def return_secret():
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        multiplicative_shares.append((result["id"], result["calculated_share"]))
+        calculated_shares.append((result["id"], result["calculated_share"]))
 
-    multiplicative_shares.append((state["id"], state["calculated_share"]))
+    calculated_shares.append((state["id"], state["calculated_share"]))
 
-    coefficients = computate_coefficients(multiplicative_shares, state["p"])
+    coefficients = computate_coefficients(calculated_shares, state["p"])
 
-    secret = reconstruct_secret(multiplicative_shares, coefficients, state["p"])
+    secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
 
-    return {"secret": secret % state["p"]}
-    
+    return {
+        "secret": secret % state["p"]
+    }  # TODO: Check if modulo p will not break the A comparison calculation
+
 
 @app.post("/api/reset", status_code=201)
 async def reset():
@@ -342,6 +435,8 @@ async def factory_reset():
             "shared_q",
             "shared_r",
             "client_shares",
+            "random_number_bit_shares",
+            "random_number_share",
             "calculated_share",
         ]
     )

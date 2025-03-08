@@ -76,6 +76,187 @@ async def send_put(session, url, json_data=None):
         print(f"Error during PUT request to {url}: {e}")
 
 
+async def romb(parties, session):
+    """
+    Helper fuction for comparison
+    (x, X) ◇ (y, Y) = (x^y , x^(X⊕Y)⊕X)
+    x - zZ[0][0]  X - zZ[0][1]
+    y - zZ[0][0]  Y - zZ[0][1]
+    """
+    # Reset the calculation for parties
+    tasks = []
+    for party in parties:
+        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
+    await asyncio.gather(*tasks)
+    print("Reset for all parties")
+
+    # First AND: x ^ y
+    # # Calculate and share q for each party
+    # tasks = []
+    # for party in parties:
+    #     tasks.append(send_post(session, f"{party}/api/redistribute-q"))
+    # await asyncio.gather(*tasks)
+    # print("q calculated and shared for all parties")
+
+    # Calculate and share r for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_post(
+                session,
+                f"{party}/api/redistribute-r",
+                json_data={
+                    "take_value_from_posredni_zZ": False,
+                    "zZ_first_multiplication_factor": [0, 0],
+                    "zZ_second_multiplication_factor": [1, 0],
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("r calculated and shared for all parties")
+
+    # Calculate the multiplicative share for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_put(
+                session,
+                f"{party}/api/calculate-multiplicative-share",
+                json_data={
+                    "set_in_posredni_zZ_index": 0,
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("Multiplicative shares calculated for all parties")
+
+    # Reset the calculation for parties
+    tasks = []
+    for party in parties:
+        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
+    await asyncio.gather(*tasks)
+    print("Reset for all parties")
+
+    # Second XOR: (X XOR Y)
+    # Add the shares
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_post(
+                session,
+                f"{party}/api/addition",
+                json_data={
+                    "take_value_from_posredni_zZ": False,
+                    "zZ_first_multiplication_factor": [0, 1],
+                    "zZ_second_multiplication_factor": [1, 1],
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("Addition calculated for all parties")
+
+    # Reset the calculation for parties
+    tasks = []
+    for party in parties:
+        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
+    await asyncio.gather(*tasks)
+    print("Reset for all parties")
+
+    # SECOND AND: x ^ (X XOR Y)
+    # # Calculate and share q for each party
+    # tasks = []
+    # for party in parties:
+    #     tasks.append(send_post(session, f"{party}/api/redistribute-q"))
+    # await asyncio.gather(*tasks)
+    # print("q calculated and shared for all parties")
+
+    # Calculate and share r for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_post(
+                session,
+                f"{party}/api/redistribute-r",
+                json_data={
+                    "take_value_from_posredni_zZ": True,
+                    "zZ_first_multiplication_factor": [0, 0],
+                    "zZ_second_multiplication_factor": [1],
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("r calculated and shared for all parties")
+
+    # Calculate the multiplicative share for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_put(
+                session,
+                f"{party}/api/calculate-multiplicative-share",
+                json_data={
+                    "set_in_posredni_zZ_index": 1,
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("Multiplicative shares calculated for all parties")
+
+    # Reset the calculation for parties
+    tasks = []
+    for party in parties:
+        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
+    await asyncio.gather(*tasks)
+    print("Reset for all parties")
+
+    # SECOND AND: x ^ (X XOR Y) ^ X
+    # # Calculate and share q for each party
+    # tasks = []
+    # for party in parties:
+    #     tasks.append(send_post(session, f"{party}/api/redistribute-q"))
+    # await asyncio.gather(*tasks)
+    # print("q calculated and shared for all parties")
+
+    # Calculate and share r for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_post(
+                session,
+                f"{party}/api/redistribute-r",
+                json_data={
+                    "take_value_from_posredni_zZ": True,
+                    "zZ_first_multiplication_factor": [0, 1],
+                    "zZ_second_multiplication_factor": [1],
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("r calculated and shared for all parties")
+
+    # Calculate the multiplicative share for each party
+    tasks = []
+    for party in parties:
+        tasks.append(
+            send_put(
+                session,
+                f"{party}/api/calculate-multiplicative-share",
+                json_data={
+                    "set_in_posredni_zZ_index": 1,
+                },
+            )
+        )
+    await asyncio.gather(*tasks)
+    print("Multiplicative shares calculated for all parties")
+
+    # Reset the calculation for parties
+    tasks = []
+    for party in parties:
+        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
+    await asyncio.gather(*tasks)
+    print("Reset for all parties")
+
+
 async def main():
     # Shamir's secret sharing
     p = "0xD"
@@ -211,6 +392,54 @@ async def main():
             )
         await asyncio.gather(*tasks)
         print("Z calculated for all parties")
+
+        # Calculate and share q for each party
+        tasks = []
+        for party in parties:
+            tasks.append(send_post(session, f"{party}/api/redistribute-q"))
+        await asyncio.gather(*tasks)
+        print("q calculated and shared for all parties")
+
+        for _ in range(l):
+            await romb(parties, session)
+
+            # Pop the first element from the list
+            tasks = []
+            for party in parties:
+                tasks.append(
+                    send_post(
+                        session,
+                        f"{party}/api/pop-zZ",
+                    )
+                )
+            await asyncio.gather(*tasks)
+            print("Popped zZ for all parties")
+
+        # Calculate the final comparison result
+        tasks = []
+        for party in parties:
+            tasks.append(
+                send_post(
+                    session,
+                    f"{party}/api/calculate-comparison-result",
+                    json_data={
+                        "opened_a": opened_a,
+                        "l": l,
+                        "k": k,
+                    },
+                )
+            )
+        await asyncio.gather(*tasks)
+        print("Comparison result calculated for all parties")
+
+        # Reconstruct the secret
+        tasks = []
+        for party in parties:
+            tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
+        results = await asyncio.gather(*tasks)
+        for i, result in enumerate(results):
+            secret = result.get("secret")
+            print(f"Secret reconstructed for party {i + 1} with value {secret}")
 
 
 if __name__ == "__main__":

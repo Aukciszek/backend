@@ -18,6 +18,8 @@ state = {
     "client_shares": None,
     "random_number_bit_shares": None,
     "random_number_share": None,
+    "zZ": None,
+    "posredni-zZ": None,
     "shared_q": None,
     "shared_r": None,
     "calculated_share": None,

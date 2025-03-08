@@ -32,13 +32,19 @@ class ZComparisonData(BaseModel):
 
 
 class RData(BaseModel):
-    first_client_id: int
-    second_client_id: int
+    take_value_from_posredni_zZ: bool
+    zZ_first_multiplication_factor: list[int]
+    zZ_second_multiplication_factor: list[int]
+
+
+class CalculateMultiplicativeShareData(BaseModel):
+    set_in_posredni_zZ_index: int
 
 
 class AdditionData(BaseModel):
-    first_client_id: int
-    second_client_id: int
+    take_value_from_posredni_zZ: bool
+    zZ_first_multiplication_factor: list[int]
+    zZ_second_multiplication_factor: list[int]
 
 
 class SharedQData(BaseModel):
@@ -49,3 +55,9 @@ class SharedQData(BaseModel):
 class SharedRData(BaseModel):
     party_id: int
     shared_r: int
+
+
+class CalculatedComparisonResultData(BaseModel):
+    opened_a: int
+    l: int
+    k: int

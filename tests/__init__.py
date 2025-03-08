@@ -205,7 +205,7 @@ async def main():
         # Reset the parties
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/reset"))
+            tasks.append(send_post(session, f"{party}/api/reset-calculation"))
         await asyncio.gather(*tasks)
         print("Reset for all parties")
 
@@ -275,14 +275,20 @@ async def main():
         # Reset the parties
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/reset"))
+            tasks.append(send_post(session, f"{party}/api/reset-calculation"))
         await asyncio.gather(*tasks)
         print("Reset for all parties")
 
         # Add the shares
         tasks = []
         for party in parties:
-            tasks.append(send_post(session, f"{party}/api/addition", json_data={"first_client_id": 2, "second_client_id": 3},))
+            tasks.append(
+                send_post(
+                    session,
+                    f"{party}/api/addition",
+                    json_data={"first_client_id": 2, "second_client_id": 3},
+                )
+            )
         await asyncio.gather(*tasks)
         print("Reset for all parties")
 

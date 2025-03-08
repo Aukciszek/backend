@@ -8,6 +8,8 @@ from api.config import STATUS, state
 from api.parsers import (
     AComparisonData,
     AdditionData,
+    CalculatedComparisonResultData,
+    CalculateMultiplicativeShareData,
     InitialValues,
     RandomNumberBitSharesData,
     RData,
@@ -184,21 +186,22 @@ async def calculate_z(values: ZComparisonData):
     zZ = []
 
     for i in range(values.l):
-        zZ.append((a_bin[i] ^ r_prim_bin[i], a_bin[i]))
+        zZ.append([a_bin[i] ^ r_prim_bin[i], a_bin[i]])
 
     zZ = list(reversed(zZ))
-    zZ.append((0, 0))
+    zZ.append([0, 0])
 
-    print("zZ: ", zZ)
+    state["zZ"] = zZ
+    state["posredni_zZ"] = [0, 0]
     return {"result": "'Z' for comparison calculated"}
 
 
 @app.post("/api/redistribute-q", status_code=201)
 async def redistribute_q():
-    if state["status"] != STATUS.INITIALIZED:
-        raise HTTPException(
-            status_code=400, detail="Server must be in initialized state."
-        )
+    # if state["status"] != STATUS.INITIALIZED:
+    #     raise HTTPException(
+    #         status_code=400, detail="Server must be in initialized state."
+    #     ) TODO
 
     validate_initialized(["t", "n", "p", "id", "parties", "shared_q"])
 
@@ -237,33 +240,28 @@ async def set_received_q(values: SharedQData):
 
 @app.post("/api/redistribute-r", status_code=201)
 async def redistribute_r(values: RData):
-    if state["status"] != STATUS.Q_CALC_SHARED:
-        raise HTTPException(
-            status_code=400, detail="Server must be in q calculated and shared state."
-        )
+    # if state["status"] != STATUS.Q_CALC_SHARED:
+    #     raise HTTPException(
+    #         status_code=400, detail="Server must be in q calculated and shared state."
+    #     )
 
     validate_initialized(["client_shares", "n", "p", "t", "id", "shared_r", "parties"])
     validate_initialized_array(["shared_q"])
 
-    if len(state["client_shares"]) < 2:
-        raise HTTPException(
-            status_code=400, detail="At least two client shares must be configured."
-        )
-
-    if values.first_client_id == values.second_client_id:
-        raise HTTPException(status_code=400, detail="Client IDs must be different.")
-
-    first_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.first_client_id), None
-    )
-    second_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.second_client_id), None
-    )
-
-    if first_client_share is None or second_client_share is None:
-        raise HTTPException(
-            status_code=400, detail="Shares not set for one or both clients."
-        )
+    if values.take_value_from_posredni_zZ:
+        first_multiplication_factor = state["zZ"][
+            values.zZ_first_multiplication_factor[0]
+        ][values.zZ_first_multiplication_factor[1]]
+        second_multiplication_factor = state["posredni_zZ"][
+            values.zZ_second_multiplication_factor[0]
+        ]
+    else:
+        first_multiplication_factor = state["zZ"][
+            values.zZ_first_multiplication_factor[0]
+        ][values.zZ_first_multiplication_factor[1]]
+        second_multiplication_factor = state["zZ"][
+            values.zZ_second_multiplication_factor[0]
+        ][values.zZ_second_multiplication_factor[1]]
 
     B = [list(range(1, state["n"] + 1)) for _ in range(state["n"])]
 
@@ -281,7 +279,8 @@ async def redistribute_r(values: RData):
     A = multiply_matrix(multiply_matrix(B_inv, P, state["p"]), B, state["p"])
 
     multiplied_shares = (
-        first_client_share * second_client_share + sum(state["shared_q"])
+        first_multiplication_factor * second_multiplication_factor
+        + sum(state["shared_q"])
     ) % state["p"]
 
     r = [0] * state["n"]
@@ -321,7 +320,7 @@ async def set_received_r(values: SharedRData):
 
 
 @app.put("/api/calculate-multiplicative-share", status_code=201)
-async def calculate_multiplicative_share():
+async def calculate_multiplicative_share(values: CalculateMultiplicativeShareData):
     if state["status"] != STATUS.R_CALC_SHARED:
         raise HTTPException(
             status_code=400, detail="Server must be in r calculated and shared state."
@@ -335,7 +334,10 @@ async def calculate_multiplicative_share():
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
     )
 
-    state["status"] = STATUS.SHARE_CALCULATED
+    state["posredni_zZ"][values.set_in_posredni_zZ_index] = (
+        sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
+    )
+
     return {"result": "Multiplicative share calculated"}
 
 
@@ -346,22 +348,61 @@ async def addition(values: AdditionData):
             status_code=400, detail="Server must be in initialized state."
         )
 
-    first_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.first_client_id), None
-    )
-    second_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.second_client_id), None
+    if values.take_value_from_posredni_zZ:
+        first_multiplication_factor = state["zZ"][
+            values.zZ_first_multiplication_factor[0]
+        ][values.zZ_first_multiplication_factor[1]]
+        second_multiplication_factor = state["posredni_zZ"][
+            values.zZ_second_multiplication_factor[0]
+        ]
+
+        state["posredni_zZ"][1] = (
+            first_multiplication_factor + second_multiplication_factor
+        ) % 2
+    else:
+        first_multiplication_factor = state["zZ"][
+            values.zZ_first_multiplication_factor[0]
+        ][values.zZ_first_multiplication_factor[1]]
+        second_multiplication_factor = state["zZ"][
+            values.zZ_second_multiplication_factor[0]
+        ][values.zZ_second_multiplication_factor[1]]
+
+        state["posredni_zZ"][1] = (
+            first_multiplication_factor + second_multiplication_factor
+        ) % 2
+
+    return {"result": "Additive share calculated"}
+
+
+@app.post("/api/pop-zZ", status_code=201)
+async def pop_zZ():
+    state["zZ"][0] = state["posredni_zZ"]
+    state["zZ"].pop(1)
+    state["posredni_zZ"] = [0, 0]
+
+    print(state["zZ"])
+
+    return {"result": "zZ popped"}
+
+
+@app.post("/api/calculate-comparison-result", status_code=201)
+async def calculate_comparison_result(values: CalculatedComparisonResultData):
+    a_bin = binary(values.opened_a)
+    r_prim_bin = binary(state["random_number_share"])
+
+    while len(a_bin) < values.l + values.k + 2:
+        a_bin.append(0)
+
+    while len(r_prim_bin) < values.l + values.k + 2:
+        r_prim_bin.append(0)
+
+    state["calculated_share"] = (
+        a_bin[values.l] ^ r_prim_bin[values.l] ^ state["zZ"][0][1]
     )
 
-    if first_client_share is None or second_client_share is None:
-        raise HTTPException(
-            status_code=400, detail="Shares not set for one or both clients."
-        )
-
-    state["calculated_share"] = first_client_share + second_client_share
+    print(state["calculated_share"])
 
     state["status"] = STATUS.SHARE_CALCULATED
-    return {"result": "Additive share calculated"}
 
 
 @app.get("/api/return-calculated-share", status_code=200)
@@ -399,6 +440,8 @@ async def return_secret():
 
     calculated_shares.append((state["id"], state["calculated_share"]))
 
+    print(calculated_shares)
+
     coefficients = computate_coefficients(calculated_shares, state["p"])
 
     secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
@@ -408,7 +451,7 @@ async def return_secret():
     }  # TODO: Check if modulo p will not break the A comparison calculation
 
 
-@app.post("/api/reset", status_code=201)
+@app.post("/api/reset-calculation", status_code=201)
 async def reset():
     if state["status"] == STATUS.NOT_INITIALIZED:
         raise HTTPException(status_code=400, detail="Server is not initialized.")
@@ -416,11 +459,26 @@ async def reset():
     validate_initialized(["n"])
 
     reset_state(["calculated_share"])
-    state["shared_q"] = [None] * state["n"]
+    # state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
     state["status"] = STATUS.INITIALIZED
 
-    return {"result": "Reset successful"}
+    return {"result": "Reset calculation successful"}
+
+
+@app.post("/api/reset-comparison", status_code=201)
+async def reset():
+    if state["status"] == STATUS.NOT_INITIALIZED:
+        raise HTTPException(status_code=400, detail="Server is not initialized.")
+
+    reset_state(
+        ["random_number_bit_shares"],
+        ["random_number_share"],
+        ["calculated_share"],
+        ["zZ"],
+    )
+
+    return {"result": "Reset comparison successful"}
 
 
 @app.post("/api/factory-reset", status_code=201)

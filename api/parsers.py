@@ -32,17 +32,22 @@ class ZComparisonData(BaseModel):
 
 
 class RData(BaseModel):
-    take_value_from_posredni_zZ: bool
-    zZ_first_multiplication_factor: list[int]
-    zZ_second_multiplication_factor: list[int]
+    take_value_from_temporary_zZ: bool = False
+    zZ_first_multiplication_factor: list[int] = None
+    zZ_second_multiplication_factor: list[int] = None
+    calculate_final_comparison_result: bool = False
+    opened_a: int = None
+    l: int = None
+    k: int = None
 
 
 class CalculateMultiplicativeShareData(BaseModel):
-    set_in_posredni_zZ_index: int
+    set_in_temporary_zZ_index: int = None
+    calculate_for_xor: bool
 
 
-class AdditionData(BaseModel):
-    take_value_from_posredni_zZ: bool
+class XorData(BaseModel):
+    take_value_from_temporary_zZ: bool
     zZ_first_multiplication_factor: list[int]
     zZ_second_multiplication_factor: list[int]
 

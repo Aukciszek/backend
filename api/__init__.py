@@ -7,7 +7,6 @@ from starlette.middleware.cors import CORSMiddleware
 from api.config import STATUS, state
 from api.parsers import (
     AComparisonData,
-    AdditionData,
     CalculatedComparisonResultData,
     CalculateMultiplicativeShareData,
     InitialValues,
@@ -16,6 +15,7 @@ from api.parsers import (
     ShareData,
     SharedQData,
     SharedRData,
+    XorData,
     ZComparisonData,
 )
 from api.utils import (
@@ -43,6 +43,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+TEMPORARY_Z0 = 0
+TEMPORARY_Z1 = 1
+
+
+def get_temporary_zZ(index: int) -> int:
+    """Safe accessor for temporary_zZ values"""
+    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
+        raise ValueError("Invalid temporary_zZ index")
+    return state["temporary_zZ"][index]
+
+
+def set_temporary_zZ(index: int, value: int):
+    """Safe mutator for temporary_zZ values"""
+    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
+        raise ValueError("Invalid temporary_zZ index")
+    state["temporary_zZ"][index] = value
+
+
+def reset_temporary_zZ():
+    """Reset temporary_zZ to initial state"""
+    state["temporary_zZ"] = [0, 0]
 
 
 @app.get("/api/status", status_code=200)
@@ -175,33 +197,29 @@ async def calculate_a_comparison(values: AComparisonData):
 @app.post("/api/calculate-z-comparison", status_code=201)
 async def calculate_z(values: ZComparisonData):
     a_bin = binary(values.opened_a)
-    r_prim_bin = binary(state["random_number_share"])
 
     while len(a_bin) < values.l + values.k + 2:
         a_bin.append(0)
 
-    while len(r_prim_bin) < values.l + values.k + 2:
-        r_prim_bin.append(0)
-
     zZ = []
 
     for i in range(values.l):
-        zZ.append([a_bin[i] ^ r_prim_bin[i], a_bin[i]])
+        zZ.append([a_bin[i], a_bin[i]])
 
     zZ = list(reversed(zZ))
     zZ.append([0, 0])
 
     state["zZ"] = zZ
-    state["posredni_zZ"] = [0, 0]
+    reset_temporary_zZ()
     return {"result": "'Z' for comparison calculated"}
 
 
 @app.post("/api/redistribute-q", status_code=201)
 async def redistribute_q():
-    # if state["status"] != STATUS.INITIALIZED:
-    #     raise HTTPException(
-    #         status_code=400, detail="Server must be in initialized state."
-    #     ) TODO
+    if state["status"] != STATUS.INITIALIZED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in initialized state."
+        )
 
     validate_initialized(["t", "n", "p", "id", "parties", "shared_q"])
 
@@ -240,54 +258,69 @@ async def set_received_q(values: SharedQData):
 
 @app.post("/api/redistribute-r", status_code=201)
 async def redistribute_r(values: RData):
-    # if state["status"] != STATUS.Q_CALC_SHARED:
-    #     raise HTTPException(
-    #         status_code=400, detail="Server must be in q calculated and shared state."
-    #     )
+    # Validate server state
+    if state["status"] != STATUS.Q_CALC_SHARED:
+        raise HTTPException(
+            status_code=400, detail="Server must be in q calculated and shared state."
+        )
 
+    # Validate required state variables
     validate_initialized(["client_shares", "n", "p", "t", "id", "shared_r", "parties"])
     validate_initialized_array(["shared_q"])
 
-    if values.take_value_from_posredni_zZ:
+    # Extract multiplication factors based on the condition
+    if not values.calculate_final_comparison_result:
         first_multiplication_factor = state["zZ"][
             values.zZ_first_multiplication_factor[0]
         ][values.zZ_first_multiplication_factor[1]]
-        second_multiplication_factor = state["posredni_zZ"][
-            values.zZ_second_multiplication_factor[0]
-        ]
-    else:
-        first_multiplication_factor = state["zZ"][
-            values.zZ_first_multiplication_factor[0]
-        ][values.zZ_first_multiplication_factor[1]]
-        second_multiplication_factor = state["zZ"][
-            values.zZ_second_multiplication_factor[0]
-        ][values.zZ_second_multiplication_factor[1]]
+        second_multiplication_factor = (
+            state["temporary_zZ"][values.zZ_second_multiplication_factor[0]]
+            if values.take_value_from_temporary_zZ
+            else state["zZ"][values.zZ_second_multiplication_factor[0]][
+                values.zZ_second_multiplication_factor[1]
+            ]
+        )
 
+    # Generate matrix B
     B = [list(range(1, state["n"] + 1)) for _ in range(state["n"])]
-
     for j in range(state["n"]):
         for k in range(state["n"]):
             B[j][k] = binary_exponentiation(B[j][k], j, state["p"])
 
+    # Compute inverse of B
     B_inv = inverse_matrix_mod(B, state["p"])
 
+    # Generate matrix P
     P = [[0] * state["n"] for _ in range(state["n"])]
-
     for i in range(state["t"]):
         P[i][i] = 1
 
+    # Compute matrix A
     A = multiply_matrix(multiply_matrix(B_inv, P, state["p"]), B, state["p"])
 
-    multiplied_shares = (
-        first_multiplication_factor * second_multiplication_factor
-        + sum(state["shared_q"])
-    ) % state["p"]
+    # Compute multiplied shares
+    if values.calculate_final_comparison_result:
+        a_bin = binary(values.opened_a)
 
-    r = [0] * state["n"]
+        while len(a_bin) < values.l + values.k + 2:
+            a_bin.append(0)
 
-    for i in range(state["n"]):
-        r[i] = (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
+        multiplied_shares = (
+            a_bin[values.l] * state["zZ"][0][1] + sum(state["shared_q"])
+        ) % state["p"]
+    else:
+        multiplied_shares = (
+            first_multiplication_factor * second_multiplication_factor
+            + sum(state["shared_q"])
+        ) % state["p"]
 
+    # Compute r values
+    r = [
+        (multiplied_shares * A[state["id"] - 1][i]) % state["p"]
+        for i in range(state["n"])
+    ]
+
+    # Distribute r values to other parties
     tasks = []
     for i in range(state["n"]):
         if i == state["id"] - 1:
@@ -300,6 +333,7 @@ async def redistribute_r(values: RData):
 
     await asyncio.gather(*tasks, return_exceptions=True)
 
+    # Update state and return response
     state["status"] = STATUS.R_CALC_SHARED
     return {"result": "r calculated and shared"}
 
@@ -326,59 +360,59 @@ async def calculate_multiplicative_share(values: CalculateMultiplicativeShareDat
             status_code=400, detail="Server must be in r calculated and shared state."
         )
 
-    validate_not_initialized(["calculated_share"])
     validate_initialized(["n", "p"])
     validate_initialized_array(["shared_r"])
 
-    state["calculated_share"] = (
+    calculated_value = (
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
     )
 
-    state["posredni_zZ"][values.set_in_posredni_zZ_index] = (
-        sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
-    )
+    if values.calculate_for_xor:
+        state["xor_multiplication"] = calculated_value
+    else:
+        set_temporary_zZ(values.set_in_temporary_zZ_index, calculated_value)
 
     return {"result": "Multiplicative share calculated"}
 
 
-@app.post("/api/addition", status_code=201)
-async def addition(values: AdditionData):
-    if state["status"] != STATUS.INITIALIZED:
-        raise HTTPException(
-            status_code=400, detail="Server must be in initialized state."
-        )
+@app.post("/api/xor", status_code=201)
+async def addition(values: XorData):
+    # Validate server state
+    # if state["status"] != STATUS.INITIALIZED:
+    #     raise HTTPException(
+    #         status_code=400, detail="Server must be in initialized state."
+    #     ) TODO
 
-    if values.take_value_from_posredni_zZ:
-        first_multiplication_factor = state["zZ"][
-            values.zZ_first_multiplication_factor[0]
-        ][values.zZ_first_multiplication_factor[1]]
-        second_multiplication_factor = state["posredni_zZ"][
-            values.zZ_second_multiplication_factor[0]
+    # Extract the first multiplication factor
+    first_multiplication_factor = state["zZ"][values.zZ_first_multiplication_factor[0]][
+        values.zZ_first_multiplication_factor[1]
+    ]
+
+    # Extract the second multiplication factor based on the condition
+    second_multiplication_factor = (
+        get_temporary_zZ(values.zZ_second_multiplication_factor[0])
+        if values.take_value_from_temporary_zZ
+        else state["zZ"][values.zZ_second_multiplication_factor[0]][
+            values.zZ_second_multiplication_factor[1]
         ]
+    )
 
-        state["posredni_zZ"][1] = (
-            first_multiplication_factor + second_multiplication_factor
-        ) % 2
-    else:
-        first_multiplication_factor = state["zZ"][
-            values.zZ_first_multiplication_factor[0]
-        ][values.zZ_first_multiplication_factor[1]]
-        second_multiplication_factor = state["zZ"][
-            values.zZ_second_multiplication_factor[0]
-        ][values.zZ_second_multiplication_factor[1]]
-
-        state["posredni_zZ"][1] = (
-            first_multiplication_factor + second_multiplication_factor
-        ) % 2
+    # Calculate the result and update state
+    result = (
+        first_multiplication_factor
+        + second_multiplication_factor
+        - 2 * state["xor_multiplication"]
+    )
+    set_temporary_zZ(TEMPORARY_Z1, result)
 
     return {"result": "Additive share calculated"}
 
 
 @app.post("/api/pop-zZ", status_code=201)
 async def pop_zZ():
-    state["zZ"][0] = state["posredni_zZ"]
+    state["zZ"][0] = [get_temporary_zZ(TEMPORARY_Z0), get_temporary_zZ(TEMPORARY_Z1)]
     state["zZ"].pop(1)
-    state["posredni_zZ"] = [0, 0]
+    reset_temporary_zZ()
 
     print(state["zZ"])
 
@@ -388,18 +422,13 @@ async def pop_zZ():
 @app.post("/api/calculate-comparison-result", status_code=201)
 async def calculate_comparison_result(values: CalculatedComparisonResultData):
     a_bin = binary(values.opened_a)
-    r_prim_bin = binary(state["random_number_share"])
 
     while len(a_bin) < values.l + values.k + 2:
         a_bin.append(0)
 
-    while len(r_prim_bin) < values.l + values.k + 2:
-        r_prim_bin.append(0)
-
     state["calculated_share"] = (
-        a_bin[values.l] ^ r_prim_bin[values.l] ^ state["zZ"][0][1]
+        a_bin[values.l] + state["zZ"][0][1] - 2 * state["xor_multiplication"]
     )
-
     print(state["calculated_share"])
 
     state["status"] = STATUS.SHARE_CALCULATED
@@ -458,8 +487,8 @@ async def reset():
 
     validate_initialized(["n"])
 
-    reset_state(["calculated_share"])
-    # state["shared_q"] = [None] * state["n"]
+    reset_state(["calculated_share", "xor_multiplication"])
+    state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
     state["status"] = STATUS.INITIALIZED
 
@@ -496,6 +525,7 @@ async def factory_reset():
             "random_number_bit_shares",
             "random_number_share",
             "calculated_share",
+            "xor_multiplication",
         ]
     )
 

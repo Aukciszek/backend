@@ -83,13 +83,6 @@ async def xor(
     zZ_first_multiplication_factor,
     zZ_second_multiplication_factor,
 ):
-    # Reset the calculation for parties
-    tasks = []
-    for party in parties:
-        tasks.append(send_post(session, f"{party}/api/reset-calculation"))
-    await asyncio.gather(*tasks)
-    print("Reset for all parties")
-
     # Calculate and share q for each party
     tasks = []
     for party in parties:
@@ -349,30 +342,14 @@ async def main():
     n = 5
     l = 3
     k = 1
-    first_bid = 7
-    second_bid = 3
+    first_bid = 9
+    second_bid = 6
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 
     print("first_bid_shares = ", first_bid_shares)
     print("second_bid_shares = ", second_bid_shares)
     print("p = ", p)
-
-    bits_of_r = []
-    shares_of_bits_of_r = []
-    for i in range(l + k + 2):
-        new_r_bit = int.from_bytes(os.urandom(1)) % 2
-        bits_of_r.append(new_r_bit)
-        shares_new_r_bit = Shamir(t, n, new_r_bit, int(p, 16))
-        shares_of_bits_of_r.append(shares_new_r_bit)
-
-    print("bits of r: ", bits_of_r)
-    print(
-        "l-th bit of r: ",
-        bits_of_r[l],
-        "shares of l-th bit of r: ",
-        shares_of_bits_of_r[l],
-    )
 
     # Create parties and set shares (P_0, ..., P_n-1)
     parties = [
@@ -417,25 +394,6 @@ async def main():
                 )
         await asyncio.gather(*tasks)
         print("Shares set for all parties")
-
-        shares_for_clients = [[] for _ in range(n)]
-
-        for bit in shares_of_bits_of_r:
-            for i, share_of_bit in enumerate(bit):
-                shares_for_clients[i].append(share_of_bit[1])
-
-        # Set the random number bit shares for each party
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_post(
-                    session,
-                    f"{party}/api/set-random-number-bit-shares",
-                    json_data={"shares": shares_for_clients[i]},
-                )
-            )
-        await asyncio.gather(*tasks)
-        print("Random number bit shares set for all parties")
 
         # Calculate the 'A' for the comparison
         tasks = []

@@ -16,8 +16,6 @@ state = {
     "p": None,
     "parties": None,
     "client_shares": None,
-    "random_number_bit_shares": None,
-    "random_number_share": None,
     "zZ": None,
     "temporary-zZ": None,
     "xor_multiplication": None,

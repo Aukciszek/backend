@@ -14,10 +14,6 @@ class ShareData(BaseModel):
     share: str
 
 
-class RandomNumberBitSharesData(BaseModel):
-    shares: list[int]
-
-
 class AComparisonData(BaseModel):
     l: int
     k: int

@@ -10,7 +10,6 @@ from api.parsers import (
     CalculatedComparisonResultData,
     CalculateMultiplicativeShareData,
     InitialValues,
-    RandomNumberBitSharesData,
     RData,
     ShareData,
     SharedQData,
@@ -99,7 +98,6 @@ async def set_initial_values(values: InitialValues):
             "shared_r": [None] * values.n,
             "parties": values.parties,
             "client_shares": [],
-            "random_number_bit_shares": [],
             "status": STATUS.INITIALIZED,
         }
     )
@@ -139,11 +137,6 @@ async def set_shares(values: ShareData):
     return {"result": "Shares set"}
 
 
-@app.post("/api/set-random-number-bit-shares", status_code=201)
-async def set_random_number_bit_shares(values: RandomNumberBitSharesData):
-    state["random_number_bit_shares"] = values.shares
-
-
 @app.post("/api/calculate-a-comparison", status_code=201)
 async def calculate_a_comparison(values: AComparisonData):
     if len(state["client_shares"]) < 2:
@@ -166,25 +159,8 @@ async def calculate_a_comparison(values: AComparisonData):
             status_code=400, detail="Shares not set for one or both clients."
         )
 
-    def multiply_bit_shares_by_powers_of_2(shares):
-        multiplied_shares = []
-        for i in range(len(shares)):
-            multiplied_shares.append(2**i * shares[i])
-        return multiplied_shares
-
-    def add_multiplied_shares(multiplied_shares):
-        share_r = multiplied_shares[0]
-        for i in range(1, len(multiplied_shares)):
-            share_r += multiplied_shares[i]
-        return share_r
-
-    pom = multiply_bit_shares_by_powers_of_2(state["random_number_bit_shares"])
-    share_of_random_number = add_multiplied_shares(pom)
-
-    state["random_number_share"] = share_of_random_number
     state["calculated_share"] = (
         pow(2, values.l + values.k + 2)
-        - share_of_random_number
         + pow(2, values.l)
         + first_client_share
         - second_client_share
@@ -414,8 +390,6 @@ async def pop_zZ():
     state["zZ"].pop(1)
     reset_temporary_zZ()
 
-    print(state["zZ"])
-
     return {"result": "zZ popped"}
 
 
@@ -429,7 +403,6 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
     state["calculated_share"] = (
         a_bin[values.l] + state["zZ"][0][1] - 2 * state["xor_multiplication"]
     )
-    print(state["calculated_share"])
 
     state["status"] = STATUS.SHARE_CALCULATED
 
@@ -469,8 +442,6 @@ async def return_secret():
 
     calculated_shares.append((state["id"], state["calculated_share"]))
 
-    print(calculated_shares)
-
     coefficients = computate_coefficients(calculated_shares, state["p"])
 
     secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
@@ -501,10 +472,7 @@ async def reset():
         raise HTTPException(status_code=400, detail="Server is not initialized.")
 
     reset_state(
-        ["random_number_bit_shares"],
-        ["random_number_share"],
-        ["calculated_share"],
-        ["zZ"],
+        ["calculated_share", "zZ"],
     )
 
     return {"result": "Reset comparison successful"}
@@ -522,8 +490,6 @@ async def factory_reset():
             "shared_q",
             "shared_r",
             "client_shares",
-            "random_number_bit_shares",
-            "random_number_share",
             "calculated_share",
             "xor_multiplication",
         ]

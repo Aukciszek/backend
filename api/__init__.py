@@ -160,9 +160,9 @@ async def calculate_a_comparison(values: AComparisonData):
         )
 
     state["calculated_share"] = (
-        pow(2, values.l + values.k + 2)
-        + pow(2, values.l)
-        + first_client_share
+        # pow(2, values.l + values.k + 2)
+        # + pow(2, values.l)
+        first_client_share
         - second_client_share
     )
 

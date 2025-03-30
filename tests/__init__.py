@@ -337,13 +337,13 @@ async def calculate_final_comparison_result(
 
 async def main():
     # Shamir's secret sharing
-    p = "0xD"
+    p = "0x1EEF"
     t = 2
     n = 5
-    l = 3
+    l = 12
     k = 1
-    first_bid = 9
-    second_bid = 6
+    first_bid = 60
+    second_bid = 40
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 

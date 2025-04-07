@@ -104,7 +104,6 @@ async def xor(
                 },
             )
         )
-
     await asyncio.gather(*tasks)
     print("r calculated and shared for all parties")
 
@@ -342,8 +341,8 @@ async def main():
     n = 5
     l = 12
     k = 1
-    first_bid = 60
-    second_bid = 40
+    first_bid = 4
+    second_bid = 5
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 
@@ -353,11 +352,11 @@ async def main():
 
     # Create parties and set shares (P_0, ..., P_n-1)
     parties = [
-        "http://localhost:5000",
         "http://localhost:5001",
         "http://localhost:5002",
         "http://localhost:5003",
         "http://localhost:5004",
+        "http://localhost:5005",
     ]
 
     async with aiohttp.ClientSession() as session:
@@ -385,6 +384,11 @@ async def main():
         tasks = []
         for i, party in enumerate(parties):
             for client_id, shares in zip([1, 2], [first_bid_shares, second_bid_shares]):
+                print(
+                    f"Setting shares for party {i + 1} and client {client_id}"
+                    f" with shares {shares[i][1]}"
+                )
+
                 tasks.append(
                     send_post(
                         session,

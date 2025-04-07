@@ -1,17 +1,11 @@
-[tool.poetry]
-name = "aukciszek-backend"
+[project]
+name = "backend"
 version = "0.1.0"
 description = ""
-authors = ["Mateusz Piwowarski <skyperpl@gmail.com>"]
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-aiohttp = "^3.11.11"
-fastapi = "^0.115.6"
-uvicorn = {extras = ["standard"], version = "^0.34.0"}
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.11.16",
+    "fastapi>=0.115.12",
+    "uvicorn[standard]>=0.34.0",
+]

@@ -341,8 +341,8 @@ async def main():
     n = 5
     l = 12
     k = 1
-    first_bid = 4
-    second_bid = 5
+    first_bid = 5
+    second_bid = 4
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 
@@ -393,7 +393,7 @@ async def main():
                     send_post(
                         session,
                         f"{party}/api/set-shares",
-                        json_data={"client_id": client_id, "share": str(shares[i][1])},
+                        json_data={"client_id": client_id, "share": hex(shares[i][1])},
                     )
                 )
         await asyncio.gather(*tasks)
@@ -448,7 +448,7 @@ async def main():
                 send_post(
                     session,
                     f"{party}/api/calculate-z-comparison",
-                    json_data={"opened_a": opened_a, "l": l, "k": k},
+                    json_data={"opened_a": hex(opened_a), "l": l, "k": k},
                 )
             )
         await asyncio.gather(*tasks)
@@ -470,7 +470,7 @@ async def main():
             print("Popped zZ for all parties")
 
         # Calculate the final comparison result
-        await calculate_final_comparison_result(parties, session, opened_a, l, k)
+        await calculate_final_comparison_result(parties, session, hex(opened_a), l, k)
 
         # Reconstruct the secret
         tasks = []

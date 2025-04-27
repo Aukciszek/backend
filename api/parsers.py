@@ -22,7 +22,7 @@ class AComparisonData(BaseModel):
 
 
 class ZComparisonData(BaseModel):
-    opened_a: int
+    opened_a: str
     l: int
     k: int
 
@@ -32,7 +32,7 @@ class RData(BaseModel):
     zZ_first_multiplication_factor: list[int] = None
     zZ_second_multiplication_factor: list[int] = None
     calculate_final_comparison_result: bool = False
-    opened_a: int = None
+    opened_a: str = None
     l: int = None
     k: int = None
 
@@ -59,6 +59,10 @@ class SharedRData(BaseModel):
 
 
 class CalculatedComparisonResultData(BaseModel):
-    opened_a: int
+    opened_a: str
     l: int
     k: int
+
+class RegisterData(BaseModel):
+    email: str
+    password: str

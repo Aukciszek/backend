@@ -1,8 +1,13 @@
 import asyncio
 from random import sample
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from starlette.middleware.cors import CORSMiddleware
+
+from decouple import config as dconfig
+from passlib.context import CryptContext
+
+from supabase import create_client
 
 from api.config import STATUS, state
 from api.parsers import (
@@ -32,8 +37,14 @@ from api.utils import (
     validate_initialized_array,
     validate_not_initialized,
 )
+from api.parsers import RegisterData
+
+# SUPABASE_URL = dconfig("SUPABASE_URL", cast=str)
+# SUPABASE_KEY = dconfig("SUPABASE_KEY", cast=str)
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 app = FastAPI()
+# supabase = create_client(url, key)
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,26 +77,26 @@ def reset_temporary_zZ():
     state["temporary_zZ"] = [0, 0]
 
 
-@app.get("/api/status", status_code=200)
+@app.get("/api/status", status_code=status.HTTP_200_OK)
 async def get_status():
     return {"status": state["status"].value}
 
 
-@app.post("/api/initial-values", status_code=201)
+@app.post("/api/initial-values", status_code=status.HTTP_200_OK)
 async def set_initial_values(values: InitialValues):
     validate_not_initialized(
         ["t", "n", "id", "p", "shared_q", "shared_r", "parties", "client_shares"]
     )
 
     if values.t <= 0 or values.n <= 0 or 2 * values.t + 1 != values.n:
-        raise HTTPException(status_code=400, detail="Invalid t or n values.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid t or n values.")
 
     if int(values.p, 16) <= 0:
-        raise HTTPException(status_code=400, detail="Prime number must be positive.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Prime number must be positive.")
 
     if len(values.parties) != values.n:
         raise HTTPException(
-            status_code=400, detail="Number of parties does not match n."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Number of parties does not match n."
         )
 
     state.update(
@@ -105,10 +116,10 @@ async def set_initial_values(values: InitialValues):
     return {"result": "Initial values set"}
 
 
-@app.get("/api/initial-values", status_code=200)
+@app.get("/api/initial-values", status_code=status.HTTP_200_OK)
 async def get_initial_values():
     if state["status"] == STATUS.NOT_INITIALIZED:
-        raise HTTPException(status_code=400, detail="Server is not initialized.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized.")
 
     validate_initialized(["t", "n", "p", "parties"])
 
@@ -120,7 +131,7 @@ async def get_initial_values():
     }
 
 
-@app.post("/api/set-shares", status_code=201)
+@app.post("/api/set-shares", status_code=status.HTTP_201_CREATED)
 async def set_shares(values: ShareData):
     validate_initialized(["client_shares"])
 
@@ -129,23 +140,23 @@ async def set_shares(values: ShareData):
         is not None
     ):
         raise HTTPException(
-            status_code=400, detail="Shares already set for this client."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Shares already set for this client."
         )
 
-    state["client_shares"].append((values.client_id, int(values.share)))
+    state["client_shares"].append((values.client_id, int(values.share, 16)))
 
     return {"result": "Shares set"}
 
 
-@app.post("/api/calculate-a-comparison", status_code=201)
+@app.post("/api/calculate-a-comparison", status_code=status.HTTP_201_CREATED)
 async def calculate_a_comparison(values: AComparisonData):
     if len(state["client_shares"]) < 2:
         raise HTTPException(
-            status_code=400, detail="At least two client shares must be configured."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="At least two client shares must be configured."
         )
 
     if values.first_client_id == values.second_client_id:
-        raise HTTPException(status_code=400, detail="Client IDs must be different.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client IDs must be different.")
 
     first_client_share = next(
         (y for x, y in state["client_shares"] if x == values.first_client_id), None
@@ -156,7 +167,7 @@ async def calculate_a_comparison(values: AComparisonData):
 
     if first_client_share is None or second_client_share is None:
         raise HTTPException(
-            status_code=400, detail="Shares not set for one or both clients."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Shares not set for one or both clients."
         )
 
     state["calculated_share"] = (
@@ -170,9 +181,9 @@ async def calculate_a_comparison(values: AComparisonData):
     return {"result": "'A' for comparison calculated"}
 
 
-@app.post("/api/calculate-z-comparison", status_code=201)
+@app.post("/api/calculate-z-comparison", status_code=status.HTTP_201_CREATED)
 async def calculate_z(values: ZComparisonData):
-    a_bin = binary(values.opened_a)
+    a_bin = binary(int(values.opened_a, 16))
 
     while len(a_bin) < values.l + values.k + 2:
         a_bin.append(0)
@@ -190,11 +201,11 @@ async def calculate_z(values: ZComparisonData):
     return {"result": "'Z' for comparison calculated"}
 
 
-@app.post("/api/redistribute-q", status_code=201)
+@app.post("/api/redistribute-q", status_code=status.HTTP_201_CREATED)
 async def redistribute_q():
     if state["status"] != STATUS.INITIALIZED:
         raise HTTPException(
-            status_code=400, detail="Server must be in initialized state."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Server must be in initialized state."
         )
 
     validate_initialized(["t", "n", "p", "id", "parties", "shared_q"])
@@ -217,27 +228,27 @@ async def redistribute_q():
     return {"result": "q calculated and shared"}
 
 
-@app.post("/api/receive-q-from-parties", status_code=201)
+@app.post("/api/receive-q-from-parties", status_code=status.HTTP_201_CREATED)
 async def set_received_q(values: SharedQData):
     validate_initialized(["shared_q"])
 
     if values.party_id > len(state["shared_q"]) or values.party_id < 1:
-        raise HTTPException(status_code=400, detail="Invalid party id.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid party id.")
 
     if state["shared_q"][values.party_id - 1] is not None:
-        raise HTTPException(status_code=400, detail="q is already set from this party.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="q is already set from this party.")
 
     state["shared_q"][values.party_id - 1] = values.shared_q
 
     return {"result": "q received"}
 
 
-@app.post("/api/redistribute-r", status_code=201)
+@app.post("/api/redistribute-r", status_code=status.HTTP_201_CREATED)
 async def redistribute_r(values: RData):
     # Validate server state
     if state["status"] != STATUS.Q_CALC_SHARED:
         raise HTTPException(
-            status_code=400, detail="Server must be in q calculated and shared state."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Server must be in q calculated and shared state."
         )
 
     # Validate required state variables
@@ -276,7 +287,7 @@ async def redistribute_r(values: RData):
 
     # Compute multiplied shares
     if values.calculate_final_comparison_result:
-        a_bin = binary(values.opened_a)
+        a_bin = binary(int(values.opened_a, 16))
 
         while len(a_bin) < values.l + values.k + 2:
             a_bin.append(0)
@@ -314,26 +325,26 @@ async def redistribute_r(values: RData):
     return {"result": "r calculated and shared"}
 
 
-@app.post("/api/receive-r-from-parties", status_code=201)
+@app.post("/api/receive-r-from-parties", status_code=status.HTTP_201_CREATED)
 async def set_received_r(values: SharedRData):
     validate_initialized(["shared_r"])
 
     if values.party_id > len(state["shared_r"]) or values.party_id < 1:
-        raise HTTPException(status_code=400, detail="Invalid party id.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid party id.")
 
     if state["shared_r"][values.party_id - 1] is not None:
-        raise HTTPException(status_code=400, detail="r is already set from this party.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="r is already set from this party.")
 
     state["shared_r"][values.party_id - 1] = values.shared_r
 
     return {"result": "r received"}
 
 
-@app.put("/api/calculate-multiplicative-share", status_code=201)
+@app.put("/api/calculate-multiplicative-share", status_code=status.HTTP_201_CREATED)
 async def calculate_multiplicative_share(values: CalculateMultiplicativeShareData):
     if state["status"] != STATUS.R_CALC_SHARED:
         raise HTTPException(
-            status_code=400, detail="Server must be in r calculated and shared state."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Server must be in r calculated and shared state."
         )
 
     validate_initialized(["n", "p"])
@@ -351,7 +362,7 @@ async def calculate_multiplicative_share(values: CalculateMultiplicativeShareDat
     return {"result": "Multiplicative share calculated"}
 
 
-@app.post("/api/xor", status_code=201)
+@app.post("/api/xor", status_code=status.HTTP_201_CREATED)
 async def addition(values: XorData):
     # Validate server state
     # if state["status"] != STATUS.INITIALIZED:
@@ -384,7 +395,7 @@ async def addition(values: XorData):
     return {"result": "Additive share calculated"}
 
 
-@app.post("/api/pop-zZ", status_code=201)
+@app.post("/api/pop-zZ", status_code=status.HTTP_201_CREATED)
 async def pop_zZ():
     state["zZ"][0] = [get_temporary_zZ(TEMPORARY_Z0), get_temporary_zZ(TEMPORARY_Z1)]
     state["zZ"].pop(1)
@@ -393,9 +404,9 @@ async def pop_zZ():
     return {"result": "zZ popped"}
 
 
-@app.post("/api/calculate-comparison-result", status_code=201)
+@app.post("/api/calculate-comparison-result", status_code=status.HTTP_201_CREATED)
 async def calculate_comparison_result(values: CalculatedComparisonResultData):
-    a_bin = binary(values.opened_a)
+    a_bin = binary(int(values.opened_a, 16))
 
     while len(a_bin) < values.l + values.k + 2:
         a_bin.append(0)
@@ -407,18 +418,18 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
     state["status"] = STATUS.SHARE_CALCULATED
 
 
-@app.get("/api/return-calculated-share", status_code=200)
+@app.get("/api/return-calculated-share", status_code=status.HTTP_200_OK)
 async def get_calculated_share():
     validate_initialized(["calculated_share", "id"])
 
     return {"id": state["id"], "calculated_share": state["calculated_share"]}
 
 
-@app.get("/api/reconstruct-secret", status_code=200)
+@app.get("/api/reconstruct-secret", status_code=status.HTTP_200_OK)
 async def return_secret():
     if state["status"] != STATUS.SHARE_CALCULATED:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Server must be in share calculated state.",
         )
 
@@ -451,10 +462,10 @@ async def return_secret():
     }  # TODO: Check if modulo p will not break the A comparison calculation
 
 
-@app.post("/api/reset-calculation", status_code=201)
+@app.post("/api/reset-calculation", status_code=status.HTTP_201_CREATED)
 async def reset_calculation():
     if state["status"] == STATUS.NOT_INITIALIZED:
-        raise HTTPException(status_code=400, detail="Server is not initialized.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized.")
 
     validate_initialized(["n"])
 
@@ -466,7 +477,7 @@ async def reset_calculation():
     return {"result": "Reset calculation successful"}
 
 
-@app.post("/api/reset-comparison", status_code=201)
+@app.post("/api/reset-comparison", status_code=status.HTTP_201_CREATED)
 async def reset_comparison():
     if state["status"] == STATUS.NOT_INITIALIZED:
         raise HTTPException(status_code=400, detail="Server is not initialized.")
@@ -485,7 +496,7 @@ async def reset_comparison():
     return {"result": "Reset comparison successful"}
 
 
-@app.post("/api/factory-reset", status_code=201)
+@app.post("/api/factory-reset", status_code=status.HTTP_201_CREATED)
 async def factory_reset():
     reset_state(
         [
@@ -509,10 +520,10 @@ async def factory_reset():
     return {"result": "Factory reset successful"}
 
 
-@app.get("/api/get-bidders", status_code=200)
+@app.get("/api/get-bidders", status_code=status.HTTP_200_OK)
 async def get_bidders():
     if state["status"] == STATUS.NOT_INITIALIZED:
-        raise HTTPException(status_code=400, detail="Server is not initialized.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized.")
 
     validate_initialized(["n"])
 
@@ -521,3 +532,18 @@ async def get_bidders():
     return {
         "bidders": bidders
     }
+
+
+# @app.post("/api/register", status_code=status.HTTP_201_CREATED)
+# async def register(user_data: RegisterData):
+#     user = supabase.table("users").select("*").eq("email", user_data.email).execute()
+
+#     if user is None:
+#         supabase.table("users").insert({
+#             "email": user_data.email,
+#             "password": pwd_context.hash(user_data.password)
+#         }).execute()
+#     else:
+#         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+
+#     return {"result": "Registration successful"}

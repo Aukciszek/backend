@@ -1,5 +1,6 @@
 import asyncio
 from random import sample
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, HTTPException, status
 from starlette.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from decouple import config as dconfig
 from passlib.context import CryptContext
 
 from supabase import create_client
+import jwt
 
 from api.config import STATUS, state
 from api.parsers import (
@@ -42,6 +44,10 @@ from api.parsers import LoginData
 
 SUPABASE_URL = dconfig("SUPABASE_URL", cast=str)
 SUPABASE_KEY = dconfig("SUPABASE_KEY", cast=str)
+SECRET_KEY_JWT = dconfig("SECRET_KEY_JWT", cast=str)
+ALGORITHM = dconfig("ALGORITHM", cast=str)
+ACCESS_TOKEN_EXPIRE_MINUTES = dconfig("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int)
+
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 app = FastAPI()
@@ -481,7 +487,7 @@ async def reset_calculation():
 @app.post("/api/reset-comparison", status_code=status.HTTP_201_CREATED)
 async def reset_comparison():
     if state["status"] == STATUS.NOT_INITIALIZED:
-        raise HTTPException(status_code=400, detail="Server is not initialized.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized.")
 
     validate_initialized(["n"])
 
@@ -534,28 +540,57 @@ async def get_bidders():
         "bidders": bidders
     }
 
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY_JWT, algorithm=ALGORITHM)
+    return encoded_jwt
 
-@app.post("/api/register", status_code=status.HTTP_201_CREATED)
-async def register(user_data: RegisterData):
-    user = supabase.table("users").select("*").eq("email", user_data.email).execute()
+@app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
+async def register(user_req_data: RegisterData):
+    user = supabase.table("users").select("*").eq("email", user_req_data.email).execute()
 
     if user.data == []:
         supabase.table("users").insert({
-            "email": user_data.email,
-            "password": pwd_context.hash(user_data.password)
+            "email": user_req_data.email,
+            "password": pwd_context.hash(user_req_data.password),
+            "admin": user_req_data.admin
         }).execute()
     else:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
 
-    return {"result": "Registration successful"}
+    user = supabase.table("users").select("*").eq("email", user_req_data.email).execute()
 
-@app.post("/api/login", status_code=status.HTTP_200_OK)
-async def login(user_data: LoginData):
-    user = supabase.table("users").select("*").eq("email", user_data.email).execute()
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+            data={"uid": user.data[0]["uid"], "admin": user.data[0]["admin"]}, expires_delta=access_token_expires
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+@app.post("/api/auth/login", status_code=status.HTTP_200_OK)
+async def login(user_req_data: LoginData):
+    user = supabase.table("users").select("*").eq("email", user_req_data.email).execute()
 
     if user.data == []:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    elif not pwd_context.verify(user_data.password, user.data[0]["password"]):
+    elif not pwd_context.verify(user_req_data.password, user.data[0]["password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password.")
 
-    return { "uid": user.data[0]["uid"] }
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    access_token = create_access_token(
+            data={"uid": user.data[0]["uid"], "admin": user.data[0]["admin"]}, expires_delta=access_token_expires
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }

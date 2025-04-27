@@ -67,6 +67,7 @@ class CalculatedComparisonResultData(BaseModel):
 class RegisterData(BaseModel):
     email: str
     password: str
+    admin: bool
 
 class LoginData(BaseModel):
     email: str

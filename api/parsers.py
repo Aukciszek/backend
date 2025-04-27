@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from ast import Str
 
 
 class InitialValues(BaseModel):
@@ -50,12 +51,12 @@ class XorData(BaseModel):
 
 class SharedQData(BaseModel):
     party_id: int
-    shared_q: int
+    shared_q: str
 
 
 class SharedRData(BaseModel):
     party_id: int
-    shared_r: int
+    shared_r: str
 
 
 class CalculatedComparisonResultData(BaseModel):
@@ -64,5 +65,9 @@ class CalculatedComparisonResultData(BaseModel):
     k: int
 
 class RegisterData(BaseModel):
+    email: str
+    password: str
+
+class LoginData(BaseModel):
     email: str
     password: str

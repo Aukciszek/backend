@@ -38,13 +38,14 @@ from api.utils import (
     validate_not_initialized,
 )
 from api.parsers import RegisterData
+from api.parsers import LoginData
 
-# SUPABASE_URL = dconfig("SUPABASE_URL", cast=str)
-# SUPABASE_KEY = dconfig("SUPABASE_KEY", cast=str)
+SUPABASE_URL = dconfig("SUPABASE_URL", cast=str)
+SUPABASE_KEY = dconfig("SUPABASE_KEY", cast=str)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 app = FastAPI()
-# supabase = create_client(url, key)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app.add_middleware(
     CORSMiddleware,
@@ -219,7 +220,7 @@ async def redistribute_q():
             continue
 
         url = f"{state['parties'][i]}/api/receive-q-from-parties"
-        json_data = {"party_id": state["id"], "shared_q": q[i][1]}
+        json_data = {"party_id": state["id"], "shared_q": hex(q[i][1])}
         tasks.append(send_post_request(url, json_data))
 
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -238,7 +239,7 @@ async def set_received_q(values: SharedQData):
     if state["shared_q"][values.party_id - 1] is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="q is already set from this party.")
 
-    state["shared_q"][values.party_id - 1] = values.shared_q
+    state["shared_q"][values.party_id - 1] = int(values.shared_q, 16)
 
     return {"result": "q received"}
 
@@ -315,7 +316,7 @@ async def redistribute_r(values: RData):
             continue
 
         url = f"{state['parties'][i]}/api/receive-r-from-parties"
-        json_data = {"party_id": state["id"], "shared_r": r[i]}
+        json_data = {"party_id": state["id"], "shared_r": hex(r[i])}
         tasks.append(send_post_request(url, json_data))
 
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -335,7 +336,7 @@ async def set_received_r(values: SharedRData):
     if state["shared_r"][values.party_id - 1] is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="r is already set from this party.")
 
-    state["shared_r"][values.party_id - 1] = values.shared_r
+    state["shared_r"][values.party_id - 1] = int(values.shared_r, 16)
 
     return {"result": "r received"}
 
@@ -534,16 +535,27 @@ async def get_bidders():
     }
 
 
-# @app.post("/api/register", status_code=status.HTTP_201_CREATED)
-# async def register(user_data: RegisterData):
-#     user = supabase.table("users").select("*").eq("email", user_data.email).execute()
+@app.post("/api/register", status_code=status.HTTP_201_CREATED)
+async def register(user_data: RegisterData):
+    user = supabase.table("users").select("*").eq("email", user_data.email).execute()
 
-#     if user is None:
-#         supabase.table("users").insert({
-#             "email": user_data.email,
-#             "password": pwd_context.hash(user_data.password)
-#         }).execute()
-#     else:
-#         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+    if user.data == []:
+        supabase.table("users").insert({
+            "email": user_data.email,
+            "password": pwd_context.hash(user_data.password)
+        }).execute()
+    else:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
 
-#     return {"result": "Registration successful"}
+    return {"result": "Registration successful"}
+
+@app.post("/api/login", status_code=status.HTTP_200_OK)
+async def login(user_data: LoginData):
+    user = supabase.table("users").select("*").eq("email", user_data.email).execute()
+
+    if user.data == []:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    elif not pwd_context.verify(user_data.password, user.data[0]["password"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password.")
+
+    return { "uid": user.data[0]["uid"] }

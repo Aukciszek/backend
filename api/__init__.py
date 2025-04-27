@@ -452,7 +452,7 @@ async def return_secret():
 
 
 @app.post("/api/reset-calculation", status_code=201)
-async def reset():
+async def reset_calculation():
     if state["status"] == STATUS.NOT_INITIALIZED:
         raise HTTPException(status_code=400, detail="Server is not initialized.")
 
@@ -467,13 +467,20 @@ async def reset():
 
 
 @app.post("/api/reset-comparison", status_code=201)
-async def reset():
+async def reset_comparison():
     if state["status"] == STATUS.NOT_INITIALIZED:
         raise HTTPException(status_code=400, detail="Server is not initialized.")
 
+    validate_initialized(["n"])
+
     reset_state(
-        ["calculated_share", "zZ"],
+        ["calculated_share", "zZ", "xor_multiplication", "temporary-zZ"]
     )
+
+    state["shared_q"] = [None] * state["n"]
+    state["shared_r"] = [None] * state["n"]
+
+    state["status"] = STATUS.INITIALIZED
 
     return {"result": "Reset comparison successful"}
 
@@ -492,9 +499,25 @@ async def factory_reset():
             "client_shares",
             "calculated_share",
             "xor_multiplication",
+            "temporary-zZ",
+            "zZ"
         ]
     )
 
     state["status"] = STATUS.NOT_INITIALIZED
 
     return {"result": "Factory reset successful"}
+
+
+@app.get("/api/get-bidders", status_code=200)
+async def get_bidders():
+    if state["status"] == STATUS.NOT_INITIALIZED:
+        raise HTTPException(status_code=400, detail="Server is not initialized.")
+
+    validate_initialized(["n"])
+
+    bidders = [item[0] for item in state["client_shares"]]
+
+    return {
+        "bidders": bidders
+    }

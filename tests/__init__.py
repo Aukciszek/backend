@@ -385,8 +385,8 @@ async def main():
         for i, party in enumerate(parties):
             for client_id, shares in zip([1, 2], [first_bid_shares, second_bid_shares]):
                 print(
-                    f"Setting shares for party {i + 1} and client {client_id}"
-                    f" with shares {shares[i][1]}"
+                    f"Setting share for party {i + 1} and client {client_id}"
+                    f" with share {shares[i][1]}"
                 )
 
                 tasks.append(
@@ -398,6 +398,20 @@ async def main():
                 )
         await asyncio.gather(*tasks)
         print("Shares set for all parties")
+
+        #Get bidders ids
+        tasks = []
+        for i, party in enumerate(parties):
+            tasks.append(
+                send_get(
+                    session,
+                    f"{party}/api/get-bidders"
+                )
+            )
+        result = await asyncio.gather(*tasks)
+        for i, result in enumerate(result):
+            bidders = result.get("bidders")
+            print(f"Bidders for party {i + 1}: {bidders}")
 
         # Calculate the 'A' for the comparison
         tasks = []

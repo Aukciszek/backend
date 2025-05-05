@@ -1107,8 +1107,15 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
 
     encoded_jwt = []
-    for secret_key_jwt in SECRET_KEYS_JWT:
-        encoded_jwt.append(jwt.encode(to_encode, secret_key_jwt, algorithm=ALGORITHM))
+    for i, secret_key_jwt in enumerate(SECRET_KEYS_JWT):
+        encoded_jwt.append(
+            {
+                "access_token": jwt.encode(
+                    to_encode, secret_key_jwt, algorithm=ALGORITHM
+                ),
+                "server": SERVERS[i],
+            }
+        )
 
     return encoded_jwt
 
@@ -1125,8 +1132,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
             "content": {
                 "application/json": {
                     "example": {
-                        "access_tokens": ["token1", "token2"],
-                        "servers": ["server1", "server2"],
+                        "access_tokens": [
+                            {"access_token": "token1", "server": "server1"},
+                            {"access_token": "token2", "server": "server2"},
+                        ],
                         "token_type": "bearer",
                     }
                 }
@@ -1176,7 +1185,7 @@ async def register(user_req_data: RegisterData):
         expires_delta=access_token_expires,
     )
 
-    return {"access_tokens": access_tokens, "servers": SERVERS, "token_type": "bearer"}
+    return {"access_tokens": access_tokens, "token_type": "bearer"}
 
 
 @app.post(
@@ -1191,8 +1200,10 @@ async def register(user_req_data: RegisterData):
             "content": {
                 "application/json": {
                     "example": {
-                        "access_tokens": ["token1", "token2"],
-                        "servers": ["server1", "server2"],
+                        "access_tokens": [
+                            {"access_token": "token1", "server": "server1"},
+                            {"access_token": "token2", "server": "server2"},
+                        ],
                         "token_type": "bearer",
                     }
                 }
@@ -1245,4 +1256,4 @@ async def login(user_req_data: LoginData):
         expires_delta=access_token_expires,
     )
 
-    return {"access_tokens": access_tokens, "servers": SERVERS, "token_type": "bearer"}
+    return {"access_tokens": access_tokens, "token_type": "bearer"}

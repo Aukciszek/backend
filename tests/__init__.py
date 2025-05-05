@@ -341,8 +341,8 @@ async def main():
     n = 5
     l = 12
     k = 1
-    first_bid = 4
-    second_bid = 5
+    first_bid = 5
+    second_bid = 3
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 
@@ -477,7 +477,7 @@ async def main():
                 secret = result.get("secret")
                 print(f"Secret reconstructed for party {i + 1} with value {secret}")
 
-                assert secret == 1
+                assert secret == 0
 
             # Reset comparison
             tasks = []

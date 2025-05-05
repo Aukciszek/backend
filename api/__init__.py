@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from random import sample
 
+import aiohttp
 import jwt
 from decouple import Csv
 from decouple import config as dconfig
@@ -157,7 +158,7 @@ async def get_status():
 
 @app.post(
     "/api/initial-values",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     tags=["Initialization"],
     summary="Set initial values for the MPC protocol",
     response_description="Initial values have been successfully set.",
@@ -181,11 +182,11 @@ async def set_initial_values(values: InitialValues):
     Sets the initial values required for the MPC protocol.
 
     Request Body:
-    - `t`: The threshold value.
-    - `n`: The total number of parties.
-    - `id`: The ID of this party.
-    - `p`: The prime number.
-    - `parties`: List of URLs of all parties.
+    - `t`: The threshold value
+    - `n`: The total number of parties
+    - `id`: The ID of this party
+    - `p`: The prime number (hexadecimal string)
+    - `parties`: List of URLs of all parties
 
     """
     validate_not_initialized(
@@ -305,8 +306,8 @@ async def set_shares(values: ShareData):
     Sets a client's share.
 
     Request Body:
-    - `client_id`: The ID of the client.
-    - `share`: The share value.
+    - `client_id`: The ID of the client
+    - `share`: The share value (hexadecimal string)
     """
     validate_initialized(["client_shares"])
 
@@ -417,7 +418,7 @@ async def calculate_z(values: ZComparisonData):
     Calculates the 'Z' value required for the comparison protocol.
 
     Request Body:
-    - `opened_a`: Opened value of a
+    - `opened_a`: Opened value of a (hexadecimal string)
     - `l`: length
     - `k`: kappa
     """
@@ -476,20 +477,21 @@ async def redistribute_q():
 
     q = Shamir(2 * state["t"], state["n"], 0, state["p"])
 
-    tasks = []
-    for i in range(state["n"]):
-        if i == state["id"] - 1:
-            state["shared_q"][i] = q[i][1]
-            continue
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for i in range(state["n"]):
+            if i == state["id"] - 1:
+                state["shared_q"][i] = q[i][1]
+                continue
 
-        url = f"{state['parties'][i]}/api/receive-q-from-parties"
-        json_data = {"party_id": state["id"], "shared_q": hex(q[i][1])}
-        tasks.append(send_post_request(url, json_data))
+            url = f"{state['parties'][i]}/api/receive-q-from-parties"
+            json_data = {"party_id": state["id"], "shared_q": hex(q[i][1])}
+            tasks.append(send_post_request(session, url, json_data))
 
-    await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-    state["status"] = STATUS.Q_CALC_SHARED
-    return {"result": "q calculated and shared"}
+        state["status"] = STATUS.Q_CALC_SHARED
+        return {"result": "q calculated and shared"}
 
 
 @app.post(
@@ -517,7 +519,7 @@ async def set_received_q(values: SharedQData):
 
     Request Body:
      - `party_id`: id of the party sending the share
-     - `shared_q`: the q share
+     - `shared_q`: the q share (hexadecimal string)
     """
     validate_initialized(["shared_q"])
 
@@ -567,11 +569,11 @@ async def redistribute_r(values: RData):
     Calculates and distributes the 'r' shares to all participating parties, based on previously distributed 'q' shares.
 
     Request Body:
-    - `take_value_from_temporary_zZ`: Flag indicating whether to take the second value from temporary_zZ.
-    - `zZ_first_multiplication_factor`: The first multiplication factor from zZ.
-    - `zZ_second_multiplication_factor`: The second multiplication factor from zZ.
-    - `calculate_final_comparison_result`: Flag indicating whether to calculate the final comparison result.
-    - `opened_a`: Opened value of a
+    - `take_value_from_temporary_zZ`: Flag indicating whether to take the second value from temporary_zZ
+    - `zZ_first_multiplication_factor`: The first multiplication factor from zZ
+    - `zZ_second_multiplication_factor`: The second multiplication factor from zZ
+    - `calculate_final_comparison_result`: Flag indicating whether to calculate the final comparison result
+    - `opened_a`: Opened value of a (hexadecimal string)
     - `l`: length
     - `k`: kappa
     """
@@ -639,21 +641,22 @@ async def redistribute_r(values: RData):
     ]
 
     # Distribute r values to other parties
-    tasks = []
-    for i in range(state["n"]):
-        if i == state["id"] - 1:
-            state["shared_r"][i] = r[i]
-            continue
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for i in range(state["n"]):
+            if i == state["id"] - 1:
+                state["shared_r"][i] = r[i]
+                continue
 
-        url = f"{state['parties'][i]}/api/receive-r-from-parties"
-        json_data = {"party_id": state["id"], "shared_r": hex(r[i])}
-        tasks.append(send_post_request(url, json_data))
+            url = f"{state['parties'][i]}/api/receive-r-from-parties"
+            json_data = {"party_id": state["id"], "shared_r": hex(r[i])}
+            tasks.append(send_post_request(session, url, json_data))
 
-    await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Update state and return response
-    state["status"] = STATUS.R_CALC_SHARED
-    return {"result": "r calculated and shared"}
+        # Update state and return response
+        state["status"] = STATUS.R_CALC_SHARED
+        return {"result": "r calculated and shared"}
 
 
 @app.post(
@@ -681,7 +684,7 @@ async def set_received_r(values: SharedRData):
 
     Request Body:
     - `party_id`: id of the party sending the share
-    - `shared_r`: the r share
+    - `shared_r`: the r share (hexadecimal string)
     """
     validate_initialized(["shared_r"])
 
@@ -859,7 +862,7 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
     Calculates the final result of the comparison.
 
     Request Body:
-    - `opened_a`: Opened value of a
+    - `opened_a`: Opened value of a (hexadecimal string)
     - `l`: length
     - `k`: kappa
     """
@@ -885,7 +888,9 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
         200: {
             "description": "Calculated share returned.",
             "content": {
-                "application/json": {"example": {"id": 1, "calculated_share": 12345}}
+                "application/json": {
+                    "example": {"id": 1, "calculated_share": "0x123456"}
+                }
             },
         }
     },
@@ -896,7 +901,7 @@ async def get_calculated_share():
     """
     validate_initialized(["calculated_share", "id"])
 
-    return {"id": state["id"], "calculated_share": state["calculated_share"]}
+    return {"id": state["id"], "calculated_share": hex(state["calculated_share"])}
 
 
 @app.get(
@@ -929,26 +934,29 @@ async def return_secret():
     ]
     selected_parties = sample(parties, state["t"] - 1)
 
-    calculated_shares = []
-    tasks = []
-    for party in selected_parties:
-        url = f"{party}/api/return-calculated-share"
-        tasks.append(send_get_request(url))
+    async with aiohttp.ClientSession() as session:
+        calculated_shares = []
+        tasks = []
+        for party in selected_parties:
+            url = f"{party}/api/return-calculated-share"
+            tasks.append(send_get_request(session, url))
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    for result in results:
-        calculated_shares.append((result["id"], result["calculated_share"]))
+        for result in results:
+            calculated_shares.append(
+                (result["id"], int(result["calculated_share"], 16))
+            )
 
-    calculated_shares.append((state["id"], state["calculated_share"]))
+        calculated_shares.append((state["id"], state["calculated_share"]))
 
-    coefficients = computate_coefficients(calculated_shares, state["p"])
+        coefficients = computate_coefficients(calculated_shares, state["p"])
 
-    secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
+        secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
 
-    return {
-        "secret": secret % state["p"]
-    }  # TODO: Check if modulo p will not break the A comparison calculation
+        return {
+            "secret": secret % state["p"]
+        }  # TODO: Check if modulo p will not break the A comparison calculation
 
 
 @app.post(

@@ -32,43 +32,42 @@ def validate_initialized_array(required_keys):
                 )
 
 
-async def send_post_request(url, json_data):
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.post(url, json=json_data) as response:
-                if response.status != 201:
-                    raise HTTPException(
-                        status_code=response.status,
-                        detail=f"Error: Received status code {response.status} for URL {url}",
-                    )
-        except aiohttp.ClientError as e:
-            raise HTTPException(
-                status_code=400, detail=f"HTTP error occurred for {url}: {e}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
-            )
+async def send_post_request(session, url, json_data):
+    try:
+        async with session.post(url, json=json_data) as response:
+            if response.status != 201:
+                raise HTTPException(
+                    status_code=response.status,
+                    detail=f"Error: Received status code {response.status} for URL {url}",
+                )
+            await response.json()
+    except aiohttp.ClientError as e:
+        raise HTTPException(
+            status_code=400, detail=f"HTTP error occurred for {url}: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
+        )
 
 
-async def send_get_request(url):
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    raise HTTPException(
-                        status_code=response.status,
-                        detail=f"Error: Received status code {response.status} for URL {url}",
-                    )
-                return await response.json()
-        except aiohttp.ClientError as e:
-            raise HTTPException(
-                status_code=400, detail=f"HTTP error occurred for {url}: {e}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
-            )
+async def send_get_request(session, url):
+    try:
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise HTTPException(
+                    status_code=response.status,
+                    detail=f"Error: Received status code {response.status} for URL {url}",
+                )
+            return await response.json()
+    except aiohttp.ClientError as e:
+        raise HTTPException(
+            status_code=400, detail=f"HTTP error occurred for {url}: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
+        )
 
 
 def reset_state(keys_to_reset):

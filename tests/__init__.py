@@ -399,87 +399,97 @@ async def main():
         await asyncio.gather(*tasks)
         print("Shares set for all parties")
 
-        #Get bidders ids
+        # Get bidders ids
         tasks = []
         for i, party in enumerate(parties):
-            tasks.append(
-                send_get(
-                    session,
-                    f"{party}/api/get-bidders"
-                )
-            )
+            tasks.append(send_get(session, f"{party}/api/get-bidders"))
         result = await asyncio.gather(*tasks)
         for i, result in enumerate(result):
             bidders = result.get("bidders")
             print(f"Bidders for party {i + 1}: {bidders}")
 
-        # Calculate the 'A' for the comparison
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_post(
-                    session,
-                    f"{party}/api/calculate-a-comparison",
-                    json_data={
-                        "l": l,
-                        "k": k,
-                        "first_client_id": 1,
-                        "second_client_id": 2,
-                    },
+        while True:
+            # Calculate the 'A' for the comparison
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_post(
+                        session,
+                        f"{party}/api/calculate-a-comparison",
+                        json_data={
+                            "first_client_id": 1,
+                            "second_client_id": 2,
+                        },
+                    )
                 )
-            )
-        await asyncio.gather(*tasks)
-        print("A calculated for all parties")
+            await asyncio.gather(*tasks)
+            print("A calculated for all parties")
 
-        # Reconstruct the secret
-        tasks = []
-        opened_a = 0
-        for party in parties:
-            tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
-        results = await asyncio.gather(*tasks)
-        for i, result in enumerate(results):
-            opened_a = result.get("secret")
-            print(f"A reconstructed for party {i + 1} with value {opened_a}")
+            # Reconstruct the secret
+            tasks = []
+            opened_a = 0
+            for party in parties:
+                tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
+            results = await asyncio.gather(*tasks)
+            for i, result in enumerate(results):
+                opened_a = result.get("secret")
+                print(f"A reconstructed for party {i + 1} with value {opened_a}")
 
-        # Calculate "z" for the comparison
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_post(
-                    session,
-                    f"{party}/api/calculate-z-comparison",
-                    json_data={"opened_a": hex(opened_a), "l": l, "k": k},
+            # Calculate "z" for the comparison
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_post(
+                        session,
+                        f"{party}/api/calculate-z-comparison",
+                        json_data={"opened_a": hex(opened_a), "l": l, "k": k},
+                    )
                 )
+            await asyncio.gather(*tasks)
+            print("Z calculated for all parties")
+
+            for _ in range(l):
+                await romb(parties, session)
+
+                # Pop the first element from the list
+                tasks = []
+                for party in parties:
+                    tasks.append(
+                        send_post(
+                            session,
+                            f"{party}/api/pop-zZ",
+                        )
+                    )
+                await asyncio.gather(*tasks)
+                print("Popped zZ for all parties")
+
+            # Calculate the final comparison result
+            await calculate_final_comparison_result(
+                parties, session, hex(opened_a), l, k
             )
-        await asyncio.gather(*tasks)
-        print("Z calculated for all parties")
 
-        for _ in range(l):
-            await romb(parties, session)
+            # Reconstruct the secret
+            tasks = []
+            for party in parties:
+                tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
+            results = await asyncio.gather(*tasks)
+            for i, result in enumerate(results):
+                secret = result.get("secret")
+                print(f"Secret reconstructed for party {i + 1} with value {secret}")
 
-            # Pop the first element from the list
+                assert secret == 1
+
+            # Reset comparison
             tasks = []
             for party in parties:
                 tasks.append(
                     send_post(
                         session,
-                        f"{party}/api/pop-zZ",
+                        f"{party}/api/reset-comparison",
                     )
                 )
             await asyncio.gather(*tasks)
-            print("Popped zZ for all parties")
-
-        # Calculate the final comparison result
-        await calculate_final_comparison_result(parties, session, hex(opened_a), l, k)
-
-        # Reconstruct the secret
-        tasks = []
-        for party in parties:
-            tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
-        results = await asyncio.gather(*tasks)
-        for i, result in enumerate(results):
-            secret = result.get("secret")
-            print(f"Secret reconstructed for party {i + 1} with value {secret}")
+            print("Comparison reset for all parties")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from ast import Str
 
 
 class InitialValues(BaseModel):
@@ -16,8 +15,6 @@ class ShareData(BaseModel):
 
 
 class AComparisonData(BaseModel):
-    l: int
-    k: int
     first_client_id: int
     second_client_id: int
 
@@ -64,10 +61,12 @@ class CalculatedComparisonResultData(BaseModel):
     l: int
     k: int
 
+
 class RegisterData(BaseModel):
     email: str
     password: str
     admin: bool
+
 
 class LoginData(BaseModel):
     email: str

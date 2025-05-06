@@ -913,7 +913,7 @@ async def get_calculated_share():
     responses={
         200: {
             "description": "Secret reconstructed.",
-            "content": {"application/json": {"example": {"secret": 654321}}},
+            "content": {"application/json": {"example": {"secret": "0x123456"}}},
         }
     },
 )
@@ -955,7 +955,7 @@ async def return_secret():
         secret = reconstruct_secret(calculated_shares, coefficients, state["p"])
 
         return {
-            "secret": secret % state["p"]
+            "secret": hex(secret % state["p"])
         }  # TODO: Check if modulo p will not break the A comparison calculation
 
 

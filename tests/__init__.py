@@ -442,7 +442,7 @@ async def main():
                     send_post(
                         session,
                         f"{party}/api/calculate-z-comparison",
-                        json_data={"opened_a": hex(opened_a), "l": l, "k": k},
+                        json_data={"opened_a": opened_a, "l": l, "k": k},
                     )
                 )
             await asyncio.gather(*tasks)
@@ -464,9 +464,7 @@ async def main():
                 print("Popped zZ for all parties")
 
             # Calculate the final comparison result
-            await calculate_final_comparison_result(
-                parties, session, hex(opened_a), l, k
-            )
+            await calculate_final_comparison_result(parties, session, opened_a, l, k)
 
             # Reconstruct the secret
             tasks = []
@@ -474,7 +472,7 @@ async def main():
                 tasks.append(send_get(session, f"{party}/api/reconstruct-secret"))
             results = await asyncio.gather(*tasks)
             for i, result in enumerate(results):
-                secret = result.get("secret")
+                secret = int(result.get("secret"), 16)
                 print(f"Secret reconstructed for party {i + 1} with value {secret}")
 
                 assert secret == 0

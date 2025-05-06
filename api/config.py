@@ -17,7 +17,7 @@ state = {
     "parties": None,
     "client_shares": None,
     "zZ": None,
-    "temporary-zZ": None,
+    "temporary_zZ": None,
     "xor_multiplication": None,
     "shared_q": None,
     "shared_r": None,

@@ -1023,7 +1023,7 @@ async def reset_comparison():
 
     validate_initialized(["n"])
 
-    reset_state(["calculated_share", "zZ", "xor_multiplication", "temporary-zZ"])
+    reset_state(["calculated_share", "zZ", "xor_multiplication", "temporary_zZ"])
 
     state["shared_q"] = [None] * state["n"]
     state["shared_r"] = [None] * state["n"]
@@ -1064,7 +1064,7 @@ async def factory_reset():
             "client_shares",
             "calculated_share",
             "xor_multiplication",
-            "temporary-zZ",
+            "temporary_zZ",
             "zZ",
         ]
     )

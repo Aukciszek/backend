@@ -488,7 +488,7 @@ async def redistribute_q():
             json_data = {"party_id": state["id"], "shared_q": hex(q[i][1])}
             tasks.append(send_post_request(session, url, json_data))
 
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks)
 
         state["status"] = STATUS.Q_CALC_SHARED
         return {"result": "q calculated and shared"}
@@ -652,7 +652,7 @@ async def redistribute_r(values: RData):
             json_data = {"party_id": state["id"], "shared_r": hex(r[i])}
             tasks.append(send_post_request(session, url, json_data))
 
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks)
 
         # Update state and return response
         state["status"] = STATUS.R_CALC_SHARED
@@ -941,7 +941,7 @@ async def return_secret():
             url = f"{party}/api/return-calculated-share"
             tasks.append(send_get_request(session, url))
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks)
 
         for result in results:
             calculated_shares.append(

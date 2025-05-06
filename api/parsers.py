@@ -27,16 +27,16 @@ class ZComparisonData(BaseModel):
 
 class RData(BaseModel):
     take_value_from_temporary_zZ: bool = False
-    zZ_first_multiplication_factor: list[int] = None
-    zZ_second_multiplication_factor: list[int] = None
+    zZ_first_multiplication_factor: list[int] | None = None
+    zZ_second_multiplication_factor: list[int] | None = None
     calculate_final_comparison_result: bool = False
-    opened_a: str = None
-    l: int = None
-    k: int = None
+    opened_a: str | None = None
+    l: int | None = None
+    k: int | None = None
 
 
 class CalculateMultiplicativeShareData(BaseModel):
-    set_in_temporary_zZ_index: int = None
+    set_in_temporary_zZ_index: int | None = None
     calculate_for_xor: bool
 
 

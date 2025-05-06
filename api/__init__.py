@@ -103,7 +103,7 @@ app = FastAPI(
     ],
 )
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(str(SUPABASE_URL), str(SUPABASE_KEY))
 
 app.add_middleware(
     CORSMiddleware,
@@ -588,18 +588,50 @@ async def redistribute_r(values: RData):
     validate_initialized(["client_shares", "n", "p", "t", "id", "shared_r", "parties"])
     validate_initialized_array(["shared_q"])
 
+    # Check for optional parameters
+    if values.calculate_final_comparison_result:
+        if values.opened_a is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="opened_a must be provided when calculate_final_comparison_result is True.",
+            )
+        if values.l is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="l must be provided when calculate_final_comparison_result is True.",
+            )
+        if values.k is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="k must be provided when calculate_final_comparison_result is True.",
+            )
+    else:
+        if values.zZ_first_multiplication_factor is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="zZ_first_multiplication_factor must be provided when calculate_final_comparison_result is False.",
+            )
+        if values.zZ_second_multiplication_factor is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="zZ_second_multiplication_factor must be provided when calculate_final_comparison_result is False.",
+            )
+
     # Extract multiplication factors based on the condition
+    first_multiplication_factor = 0
+    second_multiplication_factor = 0
+
     if not values.calculate_final_comparison_result:
         first_multiplication_factor = state["zZ"][
             values.zZ_first_multiplication_factor[0]
         ][values.zZ_first_multiplication_factor[1]]
-        second_multiplication_factor = (
-            state["temporary_zZ"][values.zZ_second_multiplication_factor[0]]
-            if values.take_value_from_temporary_zZ
-            else state["zZ"][values.zZ_second_multiplication_factor[0]][
+
+        if values.take_value_from_temporary_zZ:
+            second_multiplication_factor = get_temporary_zZ(values.zZ_second_multiplication_factor[0])
+        else:
+            second_multiplication_factor = state["zZ"][values.zZ_second_multiplication_factor[0]][
                 values.zZ_second_multiplication_factor[1]
             ]
-        )
 
     # Generate matrix B
     B = [list(range(1, state["n"] + 1)) for _ in range(state["n"])]
@@ -619,6 +651,7 @@ async def redistribute_r(values: RData):
     A = multiply_matrix(multiply_matrix(B_inv, P, state["p"]), B, state["p"])
 
     # Compute multiplied shares
+    multiplied_shares = 0
     if values.calculate_final_comparison_result:
         a_bin = binary(int(values.opened_a, 16))
 
@@ -747,6 +780,14 @@ async def calculate_multiplicative_share(values: CalculateMultiplicativeShareDat
 
     validate_initialized(["n", "p"])
     validate_initialized_array(["shared_r"])
+
+    # Check for optional parameters
+    if not values.calculate_for_xor:
+        if values.set_in_temporary_zZ_index is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="set_in_temporary_zZ_index must be provided when calculate_for_xor is False.",
+            )
 
     calculated_value = (
         sum([state["shared_r"][i] for i in range(state["n"])]) % state["p"]
@@ -1115,15 +1156,19 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
 
     encoded_jwt = []
-    for i, secret_key_jwt in enumerate(SECRET_KEYS_JWT):
-        encoded_jwt.append(
-            {
-                "access_token": jwt.encode(
-                    to_encode, secret_key_jwt, algorithm=ALGORITHM
-                ),
-                "server": SERVERS[i],
-            }
-        )
+    # Check if SECRET_KEYS_JWT is iterable
+    if isinstance(SECRET_KEYS_JWT, (list, tuple)):
+        for i, secret_key_jwt in enumerate(SECRET_KEYS_JWT):
+            # Check if SERVERS is iterable and has enough items
+            server = SERVERS[i] if isinstance(SERVERS, (list, tuple)) and i < len(SERVERS) else None
+            encoded_jwt.append(
+                {
+                    "access_token": jwt.encode(
+                        to_encode, secret_key_jwt, algorithm=str(ALGORITHM) if ALGORITHM else None
+                    ),
+                    "server": server,
+                }
+            )
 
     return encoded_jwt
 

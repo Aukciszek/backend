@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, state
+from api.models.parsers import ResultResponse
 from api.utils.utils import reset_state, validate_initialized
 
 router = APIRouter(
@@ -14,6 +15,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Reset the calculation",
     response_description="Calculation has been reset.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Calculation reset successful.",
@@ -49,6 +51,7 @@ async def reset_calculation():
     status_code=status.HTTP_201_CREATED,
     summary="Reset the comparison",
     response_description="Comparison has been reset.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Comparison reset successful.",
@@ -86,6 +89,7 @@ async def reset_comparison():
     status_code=status.HTTP_201_CREATED,
     summary="Perform a factory reset",
     response_description="Server has been factory reset.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Factory reset successful.",

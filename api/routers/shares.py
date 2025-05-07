@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import state
-from api.models.parsers import ShareData
+from api.models.parsers import ResultResponse, ShareData
 from api.utils.utils import validate_initialized
 
 router = APIRouter(
@@ -15,6 +15,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Set a client's share",
     response_description="Client's share has been successfully set.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Shares set successfully.",

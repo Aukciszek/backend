@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, state
+from api.models.parsers import BiddersResponse
 from api.utils.utils import validate_initialized
 
 router = APIRouter(
@@ -14,6 +15,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     summary="Get the list of bidders",
     response_description="Returns a list of bidder IDs.",
+    response_model=BiddersResponse,
     responses={
         200: {
             "description": "List of bidders retrieved.",

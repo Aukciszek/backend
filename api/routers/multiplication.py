@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, TEMPORARY_Z0, TEMPORARY_Z1, state
-from api.models.parsers import CalculateMultiplicativeShareData
+from api.models.parsers import CalculateMultiplicativeShareData, ResultResponse
 from api.utils.utils import (
     get_temporary_zZ,
     reset_temporary_zZ,
@@ -21,6 +21,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Calculate multiplicative share",
     response_description="Multiplicative share has been calculated.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Multiplicative share calculated.",
@@ -84,6 +85,7 @@ async def calculate_multiplicative_share(values: CalculateMultiplicativeShareDat
     status_code=status.HTTP_201_CREATED,
     summary="Pop a value from zZ",
     response_description="Value has been popped from zZ.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "zZ popped.",

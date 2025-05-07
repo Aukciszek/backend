@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 
 from api.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEYS_JWT, SERVERS
 from api.dependencies import supabase
-from api.models.parsers import LoginData, RegisterData
+from api.models.parsers import AuthenticationResponse, LoginData, RegisterData
 
 router = APIRouter(
     prefix="/api/auth",
@@ -56,6 +56,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
     response_description="User registered successfully.",
+    response_model=AuthenticationResponse,
     responses={
         201: {
             "description": "User registered.",
@@ -123,6 +124,7 @@ async def register(user_req_data: RegisterData):
     status_code=status.HTTP_200_OK,
     summary="Login a user",
     response_description="User logged in successfully.",
+    response_model=AuthenticationResponse,
     responses={
         200: {
             "description": "User logged in.",

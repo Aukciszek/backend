@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 
 from api.config import TEMPORARY_Z1, state
-from api.models.parsers import XorData
+from api.models.parsers import ResultResponse, XorData
 from api.utils.utils import get_temporary_zZ, set_temporary_zZ
 
 router = APIRouter(
@@ -15,6 +15,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Perform secure XOR operation",
     response_description="Additive share resulting from XOR operation has been calculated.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Additive share calculated.",

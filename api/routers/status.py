@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status
 
 from api.config import state
+from api.models.parsers import StatusResponse
 
 router = APIRouter(
     prefix="/api",
@@ -13,6 +14,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     summary="Get the current server status",
     response_description="Returns the current status of the server.",
+    response_model=StatusResponse,
     responses={
         200: {
             "description": "Server is operational.",

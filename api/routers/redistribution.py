@@ -4,7 +4,7 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, state
-from api.models.parsers import RData, SharedQData, SharedRData
+from api.models.parsers import RData, ResultResponse, SharedQData, SharedRData
 from api.utils.utils import (
     Shamir,
     binary,
@@ -28,6 +28,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Redistribute the 'q' shares among parties",
     response_description="'q' shares have been calculated and distributed.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'q' calculated and shared.",
@@ -81,6 +82,7 @@ async def redistribute_q():
     status_code=status.HTTP_201_CREATED,
     summary="Receive 'q' share from another party",
     response_description="'q' share has been received and stored.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'q' received.",
@@ -125,6 +127,7 @@ async def set_received_q(values: SharedQData):
     status_code=status.HTTP_201_CREATED,
     summary="Redistribute the 'r' shares among parties",
     response_description="'r' shares have been calculated and distributed.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'r' calculated and shared.",
@@ -279,6 +282,7 @@ async def redistribute_r(values: RData):
     status_code=status.HTTP_201_CREATED,
     summary="Receive 'r' share from another party",
     response_description="'r' share has been received.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'r' received.",

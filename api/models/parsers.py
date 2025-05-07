@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class InitialValues(BaseModel):
+class InitialValuesData(BaseModel):
     t: int
     n: int
     id: int
@@ -71,3 +71,69 @@ class RegisterData(BaseModel):
 class LoginData(BaseModel):
     email: str
     password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    server: str
+
+
+class AuthenticationResponse(BaseModel):
+    """
+    Response model for the /api/login and /api/register endpoints.
+    """
+
+    access_tokens: list[TokenResponse]
+    token_type: str
+
+
+class BiddersResponse(BaseModel):
+    """
+    Response model for the /api/get-bidders endpoint.
+    """
+
+    bidders: list[int]
+
+
+class ResultResponse(BaseModel):
+    """
+    Response model for endpoints that simply return a result message.
+    """
+
+    result: str
+
+
+class InitialValuesResponse(BaseModel):
+    """
+    Response model for the /api/initial-values endpoint.
+    """
+
+    t: int
+    n: int
+    p: str
+    parties: list[str]
+
+
+class CalculatedShareResponse(BaseModel):
+    """
+    Response model for the /api/return-calculated-share endpoint.
+    """
+
+    id: int
+    calculated_share: str
+
+
+class ReconstructedSecretResponse(BaseModel):
+    """
+    Response model for the /api/reconstruct-secret endpoint.
+    """
+
+    secret: str
+
+
+class StatusResponse(BaseModel):
+    """
+    Response model for the /api/status endpoint.
+    """
+
+    status: str

@@ -4,6 +4,7 @@ from api.config import STATUS, state
 from api.models.parsers import (
     AComparisonData,
     CalculatedComparisonResultData,
+    ResultResponse,
     ZComparisonData,
 )
 from api.utils.utils import binary, reset_temporary_zZ
@@ -19,6 +20,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Calculate 'A' for comparison",
     response_description="'A' for comparison has been calculated.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'A' for comparison calculated.",
@@ -89,6 +91,7 @@ async def calculate_a_comparison(values: AComparisonData):
     status_code=status.HTTP_201_CREATED,
     summary="Calculate 'Z' for comparison",
     response_description="'Z' for comparison has been calculated.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "'Z' for comparison calculated.",
@@ -132,6 +135,7 @@ async def calculate_z(values: ZComparisonData):
     status_code=status.HTTP_201_CREATED,
     summary="Calculate the final comparison result",
     response_description="Final comparison result has been calculated.",
+    response_model=ResultResponse,
     responses={
         201: {
             "description": "Comparison result calculated.",
@@ -162,3 +166,5 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
     )
 
     state["status"] = STATUS.SHARE_CALCULATED
+
+    return {"result": "Comparison result calculated"}

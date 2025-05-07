@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, state
-from api.models.parsers import InitialValues
+from api.models.parsers import InitialValuesData, InitialValuesResponse, ResultResponse
 from api.utils.utils import validate_initialized, validate_not_initialized
 
 router = APIRouter(
@@ -16,8 +16,9 @@ router = APIRouter(
     tags=["Initialization"],
     summary="Set initial values for the MPC protocol",
     response_description="Initial values have been successfully set.",
+    response_model=ResultResponse,
     responses={
-        200: {
+        201: {
             "description": "Initial values set successfully.",
             "content": {
                 "application/json": {"example": {"result": "Initial values set"}}
@@ -31,7 +32,7 @@ router = APIRouter(
         },
     },
 )
-async def set_initial_values(values: InitialValues):
+async def set_initial_values(values: InitialValuesData):
     """
     Sets the initial values required for the MPC protocol.
 
@@ -86,6 +87,7 @@ async def set_initial_values(values: InitialValues):
     status_code=status.HTTP_200_OK,
     summary="Get the currently set initial values",
     response_description="Returns the currently set initial values.",
+    response_model=InitialValuesResponse,
     responses={
         200: {
             "description": "Successfully retrieved initial values.",

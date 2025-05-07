@@ -5,6 +5,7 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, status
 
 from api.config import STATUS, state
+from api.models.parsers import CalculatedShareResponse, ReconstructedSecretResponse
 from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
@@ -23,6 +24,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     summary="Return the calculated share",
     response_description="Returns the calculated share.",
+    response_model=CalculatedShareResponse,
     responses={
         200: {
             "description": "Calculated share returned.",
@@ -48,6 +50,7 @@ async def get_calculated_share():
     status_code=status.HTTP_200_OK,
     summary="Reconstruct the secret",
     response_description="Returns the reconstructed secret.",
+    response_model=ReconstructedSecretResponse,
     responses={
         200: {
             "description": "Secret reconstructed.",

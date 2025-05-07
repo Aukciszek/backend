@@ -4,7 +4,7 @@ import os
 import aiohttp
 from fastapi import HTTPException
 
-from api.config import state
+from api.config import TEMPORARY_Z0, TEMPORARY_Z1, state
 
 
 def validate_not_initialized(required_keys):
@@ -257,3 +257,22 @@ def Shamir(t, n, k0, p):
         shares.append((i, f(i, coefficients, p, t)))
 
     return shares
+
+
+def get_temporary_zZ(index: int) -> int:
+    """Safe accessor for temporary_zZ values"""
+    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
+        raise ValueError("Invalid temporary_zZ index")
+    return state["temporary_zZ"][index]
+
+
+def set_temporary_zZ(index: int, value: int):
+    """Safe mutator for temporary_zZ values"""
+    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
+        raise ValueError("Invalid temporary_zZ index")
+    state["temporary_zZ"][index] = value
+
+
+def reset_temporary_zZ():
+    """Reset temporary_zZ to initial state"""
+    state["temporary_zZ"] = [0, 0]

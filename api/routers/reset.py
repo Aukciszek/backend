@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import STATUS, state
+from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse
 from api.utils.utils import reset_state, validate_initialized
 
@@ -24,14 +25,38 @@ router = APIRouter(
                     "example": {"result": "Reset calculation successful"}
                 }
             },
-        }
+        },
+        400: {
+            "description": "Server is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Server is not initialized."}
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def reset_calculation():
+async def reset_calculation(current_user: dict = Depends(get_current_user)):
     """
     Resets the calculation, clearing intermediate values.
     """
-    if state["status"] == STATUS.NOT_INITIALIZED:
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    if state.get("status") == STATUS.NOT_INITIALIZED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
         )
@@ -39,9 +64,14 @@ async def reset_calculation():
     validate_initialized(["n"])
 
     reset_state(["calculated_share", "xor_multiplication"])
-    state["shared_q"] = [None] * state["n"]
-    state["shared_r"] = [None] * state["n"]
-    state["status"] = STATUS.INITIALIZED
+
+    state.update(
+        {
+            "shared_q": [None] * state.get("n", 0),
+            "shared_r": [None] * state.get("n", 0),
+            "status": STATUS.INITIALIZED,
+        }
+    )
 
     return {"result": "Reset calculation successful"}
 
@@ -60,14 +90,38 @@ async def reset_calculation():
                     "example": {"result": "Reset comparison successful"}
                 }
             },
-        }
+        },
+        400: {
+            "description": "Server is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Server is not initialized."}
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def reset_comparison():
+async def reset_comparison(current_user: dict = Depends(get_current_user)):
     """
     Resets the comparison, clearing comparison-specific values.
     """
-    if state["status"] == STATUS.NOT_INITIALIZED:
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    if state.get("status") == STATUS.NOT_INITIALIZED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
         )
@@ -76,11 +130,14 @@ async def reset_comparison():
 
     reset_state(["calculated_share", "zZ", "xor_multiplication", "temporary_zZ"])
 
-    state["shared_q"] = [None] * state["n"]
-    state["shared_r"] = [None] * state["n"]
+    state.update(
+        {
+            "shared_q": [None] * state.get("n", 0),
+            "shared_r": [None] * state.get("n", 0),
+        }
+    )
 
-    state["status"] = STATUS.INITIALIZED
-
+    state.update({"status": STATUS.INITIALIZED})
     return {"result": "Reset comparison successful"}
 
 
@@ -96,13 +153,29 @@ async def reset_comparison():
             "content": {
                 "application/json": {"example": {"result": "Factory reset successful"}}
             },
-        }
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def factory_reset():
+async def factory_reset(current_user: dict = Depends(get_current_user)):
     """
     Resets the server to its initial, uninitialized state.
     """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
     reset_state(
         [
             "t",
@@ -120,6 +193,5 @@ async def factory_reset():
         ]
     )
 
-    state["status"] = STATUS.NOT_INITIALIZED
-
+    state.update({"status": STATUS.NOT_INITIALIZED})
     return {"result": "Factory reset successful"}

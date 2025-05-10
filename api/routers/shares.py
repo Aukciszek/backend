@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
+from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse, ShareData
 from api.utils.utils import validate_initialized
 
@@ -22,16 +23,37 @@ router = APIRouter(
             "content": {"application/json": {"example": {"result": "Shares set"}}},
         },
         400: {
-            "description": "Shares already set for this client.",
+            "description": "Invalid request.",
             "content": {
                 "application/json": {
-                    "example": {"detail": "Shares already set for this client."}
+                    "examples": {
+                        "already_set": {
+                            "value": {"detail": "Shares already set for this client."},
+                            "summary": "Shares already set",
+                        },
+                        "not_initialized": {
+                            "value": {
+                                "detail": "Server is not initialized or client_shares not configured."
+                            },
+                            "summary": "Not initialized",
+                        },
+                    }
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. Only clients can set shares.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
                 }
             },
         },
     },
 )
-async def set_shares(values: ShareData):
+async def set_shares(values: ShareData, current_user: dict = Depends(get_current_user)):
     """
     Sets a client's share.
 
@@ -39,10 +61,23 @@ async def set_shares(values: ShareData):
     - `client_id`: The ID of the client
     - `share`: The share value (hexadecimal string)
     """
+    if current_user.get("isAdmin") == True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
     validate_initialized(["client_shares"])
 
     if (
-        next((x for x, _ in state["client_shares"] if x == values.client_id), None)
+        next(
+            (
+                x
+                for x, _ in state.get("client_shares", [])
+                if x == current_user.get("uid")
+            ),
+            None,
+        )
         is not None
     ):
         raise HTTPException(
@@ -50,6 +85,5 @@ async def set_shares(values: ShareData):
             detail="Shares already set for this client.",
         )
 
-    state["client_shares"].append((values.client_id, int(values.share, 16)))
-
+    state["client_shares"].append((current_user.get("uid"), int(values.share, 16)))
     return {"result": "Shares set"}

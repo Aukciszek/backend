@@ -2,15 +2,11 @@ from pydantic import BaseModel
 
 
 class InitialValuesData(BaseModel):
-    t: int
-    n: int
     id: int
     p: str
-    parties: list[str]
 
 
 class ShareData(BaseModel):
-    client_id: int
     share: str
 
 
@@ -65,7 +61,7 @@ class CalculatedComparisonResultData(BaseModel):
 class RegisterData(BaseModel):
     email: str
     password: str
-    admin: bool
+    is_admin: bool
 
 
 class LoginData(BaseModel):
@@ -80,7 +76,7 @@ class TokenResponse(BaseModel):
 
 class AuthenticationResponse(BaseModel):
     """
-    Response model for the /api/login and /api/register endpoints.
+    Response model for the /api/auth/login and /api/auth/register endpoints.
     """
 
     access_tokens: list[TokenResponse]
@@ -137,3 +133,8 @@ class StatusResponse(BaseModel):
     """
 
     status: str
+
+
+class TokenData(BaseModel):
+    uid: int | None = None
+    isAdmin: bool | None = None

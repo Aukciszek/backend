@@ -263,7 +263,7 @@ def get_temporary_zZ(index: int) -> int:
     """Safe accessor for temporary_zZ values"""
     if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
         raise ValueError("Invalid temporary_zZ index")
-    return state["temporary_zZ"][index]
+    return state.get("temporary_zZ", [])[index]
 
 
 def set_temporary_zZ(index: int, value: int):
@@ -275,4 +275,4 @@ def set_temporary_zZ(index: int, value: int):
 
 def reset_temporary_zZ():
     """Reset temporary_zZ to initial state"""
-    state["temporary_zZ"] = [0, 0]
+    state.update({"temporary_zZ": [0, 0]})

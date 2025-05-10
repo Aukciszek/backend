@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import STATUS, state
+from api.config import SERVERS, STATUS, state
+from api.dependecies.auth import get_current_user
 from api.models.parsers import InitialValuesData, InitialValuesResponse, ResultResponse
 from api.utils.utils import validate_initialized, validate_not_initialized
 
@@ -25,30 +26,68 @@ router = APIRouter(
             },
         },
         400: {
-            "description": "Invalid input values.",
+            "description": "Invalid input or configuration.",
             "content": {
-                "application/json": {"example": {"detail": "Invalid t or n values."}}
+                "application/json": {
+                    "examples": {
+                        "invalid_values": {
+                            "value": {"detail": "Invalid t or n values."},
+                            "summary": "Invalid values",
+                        },
+                        "negative_prime": {
+                            "value": {"detail": "Prime number must be positive."},
+                            "summary": "Invalid prime",
+                        },
+                        "server_config": {
+                            "value": {"detail": "Invalid SERVERS configuration."},
+                            "summary": "Invalid server configuration",
+                        },
+                    }
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
             },
         },
     },
 )
-async def set_initial_values(values: InitialValuesData):
+async def set_initial_values(
+    values: InitialValuesData, current_user: dict = Depends(get_current_user)
+):
     """
     Sets the initial values required for the MPC protocol.
 
     Request Body:
-    - `t`: The threshold value
-    - `n`: The total number of parties
     - `id`: The ID of this party
     - `p`: The prime number (hexadecimal string)
-    - `parties`: List of URLs of all parties
-
     """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
     validate_not_initialized(
         ["t", "n", "id", "p", "shared_q", "shared_r", "parties", "client_shares"]
     )
 
-    if values.t <= 0 or values.n <= 0 or 2 * values.t + 1 != values.n:
+    if not isinstance(SERVERS, (list, tuple)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid SERVERS configuration.",
+        )
+
+    n = len(SERVERS)
+    t = (n - 1) // 2
+
+    if 2 * t + 1 != n:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid t or n values."
         )
@@ -59,21 +98,15 @@ async def set_initial_values(values: InitialValuesData):
             detail="Prime number must be positive.",
         )
 
-    if len(values.parties) != values.n:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Number of parties does not match n.",
-        )
-
     state.update(
         {
-            "t": values.t,
-            "n": values.n,
+            "t": t,
+            "n": n,
             "id": values.id,
             "p": int(values.p, 16),
-            "shared_q": [None] * values.n,
-            "shared_r": [None] * values.n,
-            "parties": values.parties,
+            "shared_q": [None] * n,
+            "shared_r": [None] * n,
+            "parties": SERVERS,
             "client_shares": [],
             "status": STATUS.INITIALIZED,
         }
@@ -114,13 +147,23 @@ async def set_initial_values(values: InitialValuesData):
                 }
             },
         },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def get_initial_values():
+async def get_initial_values(_: dict = Depends(get_current_user)):
     """
     Returns the currently set initial values.
     """
-    if state["status"] == STATUS.NOT_INITIALIZED:
+    if state.get("status") == STATUS.NOT_INITIALIZED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
         )
@@ -128,8 +171,8 @@ async def get_initial_values():
     validate_initialized(["t", "n", "p", "parties"])
 
     return {
-        "t": state["t"],
-        "n": state["n"],
-        "p": hex(state["p"]),
-        "parties": state["parties"],
+        "t": state.get("t"),
+        "n": state.get("n"),
+        "p": hex(state.get("p", 0)),
+        "parties": state.get("parties"),
     }

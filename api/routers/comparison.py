@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import STATUS, state
+from api.dependecies.auth import get_current_user
 from api.models.parsers import (
     AComparisonData,
     CalculatedComparisonResultData,
@@ -34,15 +35,39 @@ router = APIRouter(
             "description": "Invalid input or not enough shares.",
             "content": {
                 "application/json": {
+                    "examples": {
+                        "not_enough_shares": {
+                            "value": {
+                                "detail": "At least two client shares must be configured."
+                            }
+                        },
+                        "same_client": {
+                            "value": {"detail": "Client IDs must be different."}
+                        },
+                        "missing_shares": {
+                            "value": {
+                                "detail": "Shares not set for one or both clients."
+                            }
+                        },
+                    }
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
                     "example": {
-                        "detail": "At least two client shares must be configured."
+                        "detail": "You do not have permission to access this resource."
                     }
                 }
             },
         },
     },
 )
-async def calculate_a_comparison(values: AComparisonData):
+async def calculate_a_comparison(
+    values: AComparisonData, current_user: dict = Depends(get_current_user)
+):
     """
     Calculates the 'A' value required for the comparison protocol.
 
@@ -50,7 +75,13 @@ async def calculate_a_comparison(values: AComparisonData):
     - `first_client_id`: The ID of the first client.
     - `second_client_id`: The ID of the second client.
     """
-    if len(state["client_shares"]) < 2:
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    if len(state.get("client_shares", [])) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least two client shares must be configured.",
@@ -63,10 +94,12 @@ async def calculate_a_comparison(values: AComparisonData):
         )
 
     first_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.first_client_id), None
+        (y for x, y in state.get("client_shares", []) if x == values.first_client_id),
+        None,
     )
     second_client_share = next(
-        (y for x, y in state["client_shares"] if x == values.second_client_id), None
+        (y for x, y in state.get("client_shares", []) if x == values.second_client_id),
+        None,
     )
 
     if first_client_share is None or second_client_share is None:
@@ -75,14 +108,17 @@ async def calculate_a_comparison(values: AComparisonData):
             detail="Shares not set for one or both clients.",
         )
 
-    state["calculated_share"] = (
-        # pow(2, values.l + values.k + 2)
-        # + pow(2, values.l)
-        first_client_share
-        - second_client_share
+    state.update(
+        {
+            "calculated_share":
+            # pow(2, values.l + values.k + 2)
+            # + pow(2, values.l)
+            first_client_share
+            - second_client_share
+        }
     )
 
-    state["status"] = STATUS.SHARE_CALCULATED
+    state.update({"status": STATUS.SHARE_CALCULATED})
     return {"result": "'A' for comparison calculated"}
 
 
@@ -100,10 +136,22 @@ async def calculate_a_comparison(values: AComparisonData):
                     "example": {"result": "'Z' for comparison calculated"}
                 }
             },
-        }
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def calculate_z(values: ZComparisonData):
+async def calculate_z(
+    values: ZComparisonData, current_user: dict = Depends(get_current_user)
+):
     """
     Calculates the 'Z' value required for the comparison protocol.
 
@@ -112,6 +160,12 @@ async def calculate_z(values: ZComparisonData):
     - `l`: length
     - `k`: kappa
     """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
     a_bin = binary(int(values.opened_a, 16))
 
     while len(a_bin) < values.l + values.k + 2:
@@ -125,7 +179,7 @@ async def calculate_z(values: ZComparisonData):
     zZ = list(reversed(zZ))
     zZ.append([0, 0])
 
-    state["zZ"] = zZ
+    state.update({"zZ": zZ})
     reset_temporary_zZ()
     return {"result": "'Z' for comparison calculated"}
 
@@ -145,9 +199,22 @@ async def calculate_z(values: ZComparisonData):
                 }
             },
         },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
     },
 )
-async def calculate_comparison_result(values: CalculatedComparisonResultData):
+async def calculate_comparison_result(
+    values: CalculatedComparisonResultData,
+    current_user: dict = Depends(get_current_user),
+):
     """
     Calculates the final result of the comparison.
 
@@ -156,15 +223,23 @@ async def calculate_comparison_result(values: CalculatedComparisonResultData):
     - `l`: length
     - `k`: kappa
     """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
     a_bin = binary(int(values.opened_a, 16))
 
     while len(a_bin) < values.l + values.k + 2:
         a_bin.append(0)
 
-    state["calculated_share"] = (
-        a_bin[values.l] + state["zZ"][0][1] - 2 * state["xor_multiplication"]
+    state.update(
+        {
+            "calculated_share": a_bin[values.l]
+            + state.get("zZ", [])[0][1]
+            - 2 * state.get("xor_multiplication", 0),
+            "status": STATUS.SHARE_CALCULATED,
+        }
     )
-
-    state["status"] = STATUS.SHARE_CALCULATED
-
     return {"result": "Comparison result calculated"}

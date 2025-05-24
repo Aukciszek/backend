@@ -903,7 +903,7 @@ async def main():
     n = len(parties)
     l = 3
     k = 1
-    first_bid = 21
+    first_bid = 23
     second_bid = 22
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
@@ -998,86 +998,102 @@ async def main():
         await asyncio.gather(*tasks)
         print("A calculated for all parties")
 
-        for i in range(l + k + 1):
-            await share_random_bit(session, admin_access_tokens, parties, p, i)
+        while True:
+            for i in range(l + k + 1):
+                await share_random_bit(session, admin_access_tokens, parties, p, i)
 
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_put(
-                    session,
-                    f"{party}/api/calculate-share-of-random-number",
-                    headers={
-                        "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
-                    },
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_put(
+                        session,
+                        f"{party}/api/calculate-share-of-random-number",
+                        headers={
+                            "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
+                        },
+                    )
                 )
-            )
-        await asyncio.gather(*tasks)
-        print("Share of random number calculated for all parties")
+            await asyncio.gather(*tasks)
+            print("Share of random number calculated for all parties")
 
-        # Calculate "a" for comparison
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_put(
-                    session,
-                    f"{party}/api/calculate-a-comparison",
-                    json_data={
-                        "first_client_id": 23,
-                        "second_client_id": 25,
-                        "l": l,
-                        "k": k,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
-                    },
+            # Calculate "a" for comparison
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_put(
+                        session,
+                        f"{party}/api/calculate-a-comparison",
+                        json_data={
+                            "first_client_id": 23,
+                            "second_client_id": 25,
+                            "l": l,
+                            "k": k,
+                        },
+                        headers={
+                            "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
+                        },
+                    )
                 )
-            )
-        await asyncio.gather(*tasks)
-        print("'a' for comparison calculated for all parties")
+            await asyncio.gather(*tasks)
+            print("'a' for comparison calculated for all parties")
 
-        # Reconstruct "a" for comparison
-        opened_a = 0
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_get(
-                    session,
-                    f"{party}/api/reconstruct-secret",
-                    json_data={"share_to_reconstruct": "comparison_a"},
-                    headers={
-                        "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
-                    },
+            # Reconstruct "a" for comparison
+            opened_a = 0
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_get(
+                        session,
+                        f"{party}/api/reconstruct-secret",
+                        json_data={"share_to_reconstruct": "comparison_a"},
+                        headers={
+                            "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
+                        },
+                    )
                 )
-            )
-        results = await asyncio.gather(*tasks)
-        for i, result in enumerate(results):
-            opened_a = int(result.get("secret"), 16)
-            print(
-                f"Comparison 'a' reconstructed for party {i + 1} with value {opened_a}"
-            )
-
-        await comparison(session, admin_access_tokens, parties, opened_a, l, k)
-
-        # Reconstruct final result
-        tasks = []
-        for i, party in enumerate(parties):
-            tasks.append(
-                send_get(
-                    session,
-                    f"{party}/api/reconstruct-secret",
-                    json_data={"share_to_reconstruct": "res"},
-                    headers={
-                        "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
-                    },
+            results = await asyncio.gather(*tasks)
+            for i, result in enumerate(results):
+                opened_a = int(result.get("secret"), 16)
+                print(
+                    f"Comparison 'a' reconstructed for party {i + 1} with value {opened_a}"
                 )
-            )
-        results = await asyncio.gather(*tasks)
-        for i, result in enumerate(results):
-            final_result = int(result.get("secret"), 16)
-            print(
-                f"Final result reconstructed for party {i + 1} with value {final_result}"
-            )
+
+            await comparison(session, admin_access_tokens, parties, opened_a, l, k)
+
+            # Reconstruct final result
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_get(
+                        session,
+                        f"{party}/api/reconstruct-secret",
+                        json_data={"share_to_reconstruct": "res"},
+                        headers={
+                            "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
+                        },
+                    )
+                )
+            results = await asyncio.gather(*tasks)
+            for i, result in enumerate(results):
+                final_result = int(result.get("secret"), 16)
+                print(
+                    f"Final result reconstructed for party {i + 1} with value {final_result}"
+                )
+
+            # Reset comparison for all parties
+            tasks = []
+            for i, party in enumerate(parties):
+                tasks.append(
+                    send_post(
+                        session,
+                        f"{party}/api/reset-comparison",
+                        headers={
+                            "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
+                        },
+                    )
+                )
+            await asyncio.gather(*tasks)
+            print("Comparison reset for all parties")
 
 
 if __name__ == "__main__":

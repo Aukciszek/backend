@@ -58,7 +58,6 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
 
     state.update(
         {
-            # temporary results of arithmetic operations on shares
             "multiplicative_share": None,
             "additive_share": None,
             "xor_share": None,
@@ -69,6 +68,7 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
         {
             "shared_r": [None] * state.get("n", 0),
             "shared_q": [None] * state.get("n", 0),
+            "shared_u": [None] * state.get("n", 0),
         }
     )
 
@@ -125,20 +125,18 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
             "multiplicative_share": None,
             "additive_share": None,
             "xor_share": None,
+            "shares": {
+                "client_shares": state["shares"].get("client_shares", None),
+                "shared_r": [None] * state.get("n", 0),
+                "shared_q": [None] * state.get("n", 0),
+                "shared_u": [None] * state.get("n", 0),
+            },
             "random_number_bit_shares": [],
             "random_number_share": None,
             "comparison_a": None,
             "z_table": [],
             "Z_table": [],
             "comparison_a_bits": [],
-        }
-    )
-
-    state["shares"].update(
-        {
-            "shared_r": [None] * state.get("n", 0),
-            "shared_q": [None] * state.get("n", 0),
-            "shared_u": [None] * state.get("n", 0),
         }
     )
 

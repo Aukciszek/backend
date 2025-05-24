@@ -7,13 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import (
-    CalculatedShareResponse,
-    ReconstructedSecretResponse,
+    ReconstructSecret,
+    ReturnCalculatedShare,
     ShareToReconstruct,
 )
 from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
+    send_get_request,
     send_post_request,
     validate_initialized,
     validate_initialized_shares,
@@ -25,17 +26,18 @@ router = APIRouter(
 )
 
 
-@router.post(
+@router.get(
     "/return-calculated-share",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     summary="Return the calculated share",
-    response_description="Returns the calculated share.",
+    response_description="Returns the party identifier along with the calculated share (in hexadecimal).",
+    response_model=ReturnCalculatedShare,
     responses={
         200: {
-            "description": "Calculated share returned.",
+            "description": "Calculated share returned successfully.",
             "content": {
                 "application/json": {
-                    "example": {"id": 1, "calculated_share": "0x123abc456def"}
+                    "example": {"id": 1, "share_to_reconstruct": "0x123abc456def"}
                 }
             },
         },
@@ -43,18 +45,7 @@ router = APIRouter(
             "description": "Invalid configuration.",
             "content": {
                 "application/json": {
-                    "examples": {
-                        "invalid_config": {
-                            "value": {"detail": "Invalid TRUSTED_IPS configuration."},
-                            "summary": "Invalid configuration",
-                        },
-                        "missing_data": {
-                            "value": {
-                                "detail": "Calculated share or ID not initialized."
-                            },
-                            "summary": "Missing data",
-                        },
-                    }
+                    "example": {"detail": "Invalid TRUSTED_IPS configuration."}
                 }
             },
         },
@@ -72,7 +63,7 @@ router = APIRouter(
 )
 async def get_calculated_share(values: ShareToReconstruct, request: Request):
     """
-    Returns the calculated share.
+    Returns the calculated share associated with the requested share key.
     """
     if not isinstance(TRUSTED_IPS, (list, tuple)):
         raise HTTPException(
@@ -97,22 +88,21 @@ async def get_calculated_share(values: ShareToReconstruct, request: Request):
     }
 
 
-@router.post(
+@router.get(
     "/reconstruct-secret",
     status_code=status.HTTP_201_CREATED,
     summary="Reconstruct the secret",
-    response_description="Returns the reconstructed secret.",
+    response_description="Reconstructed secret returned as hexadecimal string.",
+    response_model=ReconstructSecret,
     responses={
         200: {
             "description": "Secret reconstructed successfully.",
             "content": {"application/json": {"example": {"secret": "0x123abc456def"}}},
         },
         400: {
-            "description": "Invalid state or configuration.",
+            "description": "Server is not initialized.",
             "content": {
-                "application/json": {
-                    "example": {"detail": "Server must be in share calculated state."}
-                }
+                "application/json": {"example": {"detail": "n is not initialized."}}
             },
         },
         403: {
@@ -131,7 +121,7 @@ async def return_secret(
     values: ShareToReconstruct, current_user: dict = Depends(get_current_user)
 ):
     """
-    Reconstructs the secret from the shared values.
+    Reconstructs the secret from the available calculated shares.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -157,11 +147,9 @@ async def return_secret(
             json_data = {
                 "share_to_reconstruct": values.share_to_reconstruct,
             }
-            tasks.append(send_post_request(session, url, json_data))
+            tasks.append(send_get_request(session, url, json_data))
 
-        results = await asyncio.gather(*tasks, return_exceptions=False)
-
-        print(results)
+        results = await asyncio.gather(*tasks)
 
         for result in results:
             calculated_shares.append(

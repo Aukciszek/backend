@@ -2,70 +2,80 @@ from pydantic import BaseModel
 
 
 class InitialValuesData(BaseModel):
+    """Data model for initial values data."""
+
     id: int
     p: str
 
 
 class SetClientShareData(BaseModel):
+    """Data model for setting client share data."""
+
     share: str
 
 
 class SetShareData(BaseModel):
+    """Data model for setting general share data."""
+
     share_name: str
     share_value: str
 
 
 class AComparisonData(BaseModel):
+    """Data model for comparing two clients."""
+
     first_client_id: int
     second_client_id: int
     l: int
     k: int
 
 
-class ZComparisonData(BaseModel):
-    opened_a: str
-    l: int
-    k: int
-
-
 class RData(BaseModel):
+    """Data model for R operation shares."""
+
     first_share_name: str
     second_share_name: str
 
 
 class AdditiveShareData(BaseModel):
+    """Data model for additive share operations."""
+
     first_share_name: str
     second_share_name: str
 
 
 class SharedQData(BaseModel):
+    """Data model for shared Q values."""
+
     party_id: int
     shared_q: str
 
 
 class SharedRData(BaseModel):
+    """Data model for shared R values."""
+
     party_id: int
     shared_r: str
 
 
-class CalculatedComparisonResultData(BaseModel):
-    opened_a: str
-    l: int
-    k: int
-
-
 class RegisterData(BaseModel):
+    """Data model for registration endpoint."""
+
     email: str
     password: str
     is_admin: bool
 
 
 class LoginData(BaseModel):
+    """Data model for login endpoint."""
+
     email: str
     password: str
 
 
 class TokenResponse(BaseModel):
+    """Response model for token details."""
+
     access_token: str
     server: str
 
@@ -106,49 +116,22 @@ class InitialValuesResponse(BaseModel):
     parties: list[str]
 
 
-class CalculatedShareResponse(BaseModel):
-    """
-    Response model for the /api/return-calculated-share endpoint.
-    """
-
-    id: int
-    calculated_share: str
-
-
-class ReconstructedSecretResponse(BaseModel):
-    """
-    Response model for the /api/reconstruct-secret endpoint.
-    """
-
-    secret: str
-
-
-class StatusResponse(BaseModel):
-    """
-    Response model for the /api/status endpoint.
-    """
-
-    status: str
-
-
 class TokenData(BaseModel):
+    """Data model for token payload."""
+
     uid: int | None = None
     isAdmin: bool | None = None
 
 
 class SharedUData(BaseModel):
-    """
-    Data model for the /api/receive-u-from-parties endpoint.
-    """
+    """Data model for receiving shared U from parties."""
 
     party_id: int
     shared_u: str
 
 
 class PrepareZTablesData(BaseModel):
-    """
-    Data model for the /api/prepare-z-tables endpoint.
-    """
+    """Data model for preparing Z tables."""
 
     l: int
     k: int
@@ -156,16 +139,25 @@ class PrepareZTablesData(BaseModel):
 
 
 class InitializezAndZZData(BaseModel):
-    """
-    Data model for the /api/initialize-z-and-Z endpoint.
-    """
+    """Data model for initializing z and Z entities."""
 
     l: int
 
 
 class ShareToReconstruct(BaseModel):
-    """
-    Data model for the /api/reconstruct-secret and /api/return-calculated-share endpoints.
-    """
+    """Data model for share reconstruction input."""
 
+    share_to_reconstruct: str
+
+
+class ReconstructSecret(BaseModel):
+    """Response model for the /api/reconstruct-secret endpoint."""
+
+    secret: str
+
+
+class ReturnCalculatedShare(BaseModel):
+    """Response model for the /api/return-calculated-share endpoint."""
+
+    id: int
     share_to_reconstruct: str

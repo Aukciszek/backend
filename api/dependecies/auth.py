@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
-from api.config import ALGORITHM, SECRET_KEYS_JWT, SERVERS, state
+from api.config import ALGORITHM, SECRET_KEYS_JWT, SERVER_ID, SERVERS
 from api.dependecies.supabase import supabase
 from api.models.parsers import TokenData
 
@@ -78,7 +78,9 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Invalid SECRET_KEYS_JWT configuration",
             )
-        payload = jwt.decode(token, SECRET_KEYS_JWT[4], algorithms=[str(ALGORITHM)])
+        payload = jwt.decode(
+            token, SECRET_KEYS_JWT[SERVER_ID], algorithms=[str(ALGORITHM)]
+        )
         uid = payload.get("uid")
         if uid is None:
             raise credentials_exception

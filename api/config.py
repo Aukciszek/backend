@@ -1,5 +1,3 @@
-from enum import Enum
-
 from decouple import Csv
 from decouple import config as dconfig
 
@@ -8,9 +6,7 @@ TRUSTED_IPS = dconfig("TRUSTED_IPS", cast=Csv(str))
 SERVERS = dconfig("SERVERS", cast=Csv(str))
 ALGORITHM = dconfig("ALGORITHM", cast=str)
 ACCESS_TOKEN_EXPIRE_MINUTES = dconfig("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int)
-
-TEMPORARY_Z0 = 0
-TEMPORARY_Z1 = 1
+SERVER_ID = dconfig("SERVER_ID", cast=int, default=0)
 
 
 state = {

@@ -4,7 +4,7 @@ import os
 import aiohttp
 from fastapi import HTTPException
 
-from api.config import TEMPORARY_Z0, TEMPORARY_Z1, state
+from api.config import state
 
 
 def validate_not_initialized(required_keys):
@@ -63,9 +63,9 @@ async def send_post_request(session, url, json_data):
         )
 
 
-async def send_get_request(session, url):
+async def send_get_request(session, url, json_data=None):
     try:
-        async with session.get(url) as response:
+        async with session.get(url, json=json_data) as response:
             if response.status != 200:
                 raise HTTPException(
                     status_code=response.status,

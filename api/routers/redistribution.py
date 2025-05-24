@@ -1,13 +1,21 @@
 import asyncio
+import random
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import RData, ResultResponse, SharedQData, SharedRData
+from api.models.parsers import (
+    RData,
+    ResultResponse,
+    SharedQData,
+    SharedRData,
+    SharedUData,
+)
 from api.utils.utils import (
     Shamir,
+    secure_randint,
     send_post_request,
     validate_initialized,
     validate_initialized_shares,
@@ -20,11 +28,11 @@ router = APIRouter(
 )
 
 
-@router.post(
+@router.put(
     "/redistribute-q",
     status_code=status.HTTP_201_CREATED,
-    summary="Redistribute the 'q' shares among parties",
-    response_description="'q' shares have been calculated and distributed.",
+    summary="Redistribute 'q' shares among parties",
+    response_description="'q' shares (hexadecimal) computed with Shamir's scheme are distributed to all parties.",
     response_model=ResultResponse,
     responses={
         201: {
@@ -34,11 +42,9 @@ router = APIRouter(
             },
         },
         400: {
-            "description": "Invalid server state.",
+            "description": "Server is not initialized.",
             "content": {
-                "application/json": {
-                    "example": {"detail": "Server must be in initialized state."}
-                }
+                "application/json": {"example": {"detail": "n is not initialized."}}
             },
         },
         403: {
@@ -55,7 +61,7 @@ router = APIRouter(
 )
 async def redistribute_q(current_user: dict = Depends(get_current_user)):
     """
-    Calculates and distributes the 'q' shares to all participating parties.
+    Computes 'q' shares using a Shamir scheme and distributes them to all participating parties.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -87,12 +93,12 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
 @router.post(
     "/receive-q-from-parties",
     status_code=status.HTTP_201_CREATED,
-    summary="Receive 'q' share from another party",
-    response_description="'q' share has been received and stored.",
+    summary="Receive 'q' share from a party",
+    response_description="'q' share received (as hexadecimal) and stored.",
     response_model=ResultResponse,
     responses={
         201: {
-            "description": "'q' received successfully.",
+            "description": "'q' share received successfully.",
             "content": {"application/json": {"example": {"result": "q received"}}},
         },
         400: {
@@ -102,15 +108,12 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
                     "examples": {
                         "invalid_party": {
                             "value": {"detail": "Invalid party id."},
-                            "summary": "Invalid party ID",
                         },
                         "already_set": {
                             "value": {"detail": "q is already set from this party."},
-                            "summary": "Already set",
                         },
                         "invalid_config": {
                             "value": {"detail": "Invalid TRUSTED_IPS configuration."},
-                            "summary": "Invalid configuration",
                         },
                     }
                 }
@@ -130,11 +133,14 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
 )
 async def set_received_q(values: SharedQData, request: Request):
     """
-    Receives and stores a 'q' share from another participating party.
+    Receives a 'q' share from another party and stores it.
 
     Request Body:
-     - `party_id`: id of the party sending the share
-     - `shared_q`: the q share (hexadecimal string)
+    - `party_id`: The ID of the party sending the share
+    - `shared_q`: The q share value (hexadecimal string)
+
+    Dependencies:
+    - `request`: HTTP request object for IP validation
     """
     if not isinstance(TRUSTED_IPS, (list, tuple)):
         raise HTTPException(
@@ -175,7 +181,7 @@ async def set_received_q(values: SharedQData, request: Request):
     return {"result": "q received"}
 
 
-@router.post(
+@router.put(
     "/redistribute-r",
     status_code=status.HTTP_201_CREATED,
     summary="Redistribute the 'r' shares among parties",
@@ -192,20 +198,7 @@ async def set_received_q(values: SharedQData, request: Request):
             "description": "Invalid server state or parameters.",
             "content": {
                 "application/json": {
-                    "examples": {
-                        "invalid_state": {
-                            "value": {
-                                "detail": "Server must be in q calculated and shared state."
-                            },
-                            "summary": "Invalid state",
-                        },
-                        "missing_params": {
-                            "value": {
-                                "detail": "opened_a must be provided when calculate_final_comparison_result is True."
-                            },
-                            "summary": "Missing parameter",
-                        },
-                    }
+                    "example": {"detail": "Invalid share names provided."}
                 }
             },
         },
@@ -271,7 +264,7 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
             json_data = {"party_id": state.get("id"), "shared_r": hex(r[i])}
             tasks.append(send_post_request(session, url, json_data))
 
-        await asyncio.gather(*tasks, return_exceptions=False)
+        await asyncio.gather(*tasks)
 
         return {"result": "r calculated and shared"}
 
@@ -294,15 +287,12 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
                     "examples": {
                         "invalid_party": {
                             "value": {"detail": "Invalid party id."},
-                            "summary": "Invalid party ID",
                         },
                         "already_set": {
                             "value": {"detail": "r is already set from this party."},
-                            "summary": "Already set",
                         },
                         "invalid_config": {
                             "value": {"detail": "Invalid TRUSTED_IPS configuration."},
-                            "summary": "Invalid configuration",
                         },
                     }
                 }
@@ -325,8 +315,11 @@ async def set_received_r(values: SharedRData, request: Request):
     Receives and stores an 'r' share from another participating party.
 
     Request Body:
-    - `party_id`: id of the party sending the share
-    - `shared_r`: the r share (hexadecimal string)
+    - `party_id`: The ID of the party sending the share
+    - `shared_r`: The r share value (hexadecimal string)
+
+    Dependencies:
+    - `request`: HTTP request object for IP validation
     """
     if not isinstance(TRUSTED_IPS, (list, tuple)):
         raise HTTPException(
@@ -363,3 +356,203 @@ async def set_received_r(values: SharedRData, request: Request):
     state["shares"]["shared_r"][values.party_id - 1] = int(values.shared_r, 16)
 
     return {"result": "r received"}
+
+
+@router.put(
+    "/redistribute-u",
+    status_code=status.HTTP_201_CREATED,
+    summary="Redistribute the 'u' shares among parties",
+    response_description="'u' shares have been calculated and distributed.",
+    response_model=ResultResponse,
+    responses={
+        201: {
+            "description": "'u' calculated and shared successfully.",
+            "content": {
+                "application/json": {"example": {"result": "u calculated and shared"}}
+            },
+        },
+        400: {
+            "description": "Invalid server state.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Server must be in initialized state."}
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
+    },
+)
+async def redistribute_u(current_user: dict = Depends(get_current_user)):
+    """
+    Calculates and distributes the 'u' shares to all participating parties.
+    """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    validate_initialized(["t", "n", "p", "id", "parties"])
+    validate_initialized_shares(["shared_u"])
+
+    u = Shamir(state["t"], state["n"], secure_randint(1, state.get("p", 0)), state["p"])
+
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for i in range(state.get("n", 0)):
+            if i == state.get("id", 0) - 1:
+                state["shares"]["shared_u"][i] = u[i][1]
+                continue
+
+            url = f"{state['parties'][i]}/api/receive-u-from-parties"
+            json_data = {"party_id": state.get("id"), "shared_u": hex(u[i][1])}
+            tasks.append(send_post_request(session, url, json_data))
+
+        await asyncio.gather(*tasks)
+
+        return {"result": "u calculated and shared"}
+
+
+@router.post(
+    "/receive-u-from-parties",
+    status_code=status.HTTP_201_CREATED,
+    summary="Receive 'u' share from another party",
+    response_description="'u' share has been received and stored.",
+    response_model=ResultResponse,
+    responses={
+        201: {
+            "description": "'u' received successfully.",
+            "content": {"application/json": {"example": {"result": "u received"}}},
+        },
+        400: {
+            "description": "Invalid request.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "invalid_party": {
+                            "value": {"detail": "Invalid party id."},
+                        },
+                        "already_set": {
+                            "value": {"detail": "u is already set from this party."},
+                        },
+                        "invalid_config": {
+                            "value": {"detail": "Invalid TRUSTED_IPS configuration."},
+                        },
+                    }
+                }
+            },
+        },
+        403: {
+            "description": "Forbidden. Request not from trusted IP.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
+    },
+)
+async def receive_u_from_parties(values: SharedUData, request: Request):
+    """
+    Receives a 'u' share from another party and stores it.
+
+    Request Body:
+    - `party_id`: The ID of the party sending the share
+    - `shared_u`: The u share value (hexadecimal string)
+
+    Dependencies:
+    - `request`: HTTP request object for IP validation
+    """
+    if not isinstance(TRUSTED_IPS, (list, tuple)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid TRUSTED_IPS configuration.",
+        )
+
+    if not request.client or request.client.host not in TRUSTED_IPS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="You do not have permission to access this resource.",
+    #     ) TODO:
+
+    if (
+        values.party_id > len(state.get("shares", {}).get("shared_u", []))
+        or values.party_id < 1
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid party id."
+        )
+
+    state["shares"]["shared_u"][values.party_id - 1] = int(values.shared_u, 16)
+
+    return {"result": "u received"}
+
+
+@router.put(
+    "/calculate-shared-u",
+    status_code=status.HTTP_201_CREATED,
+    summary="Calculate shared 'u' value",
+    response_description="'u' value has been calculated.",
+    response_model=ResultResponse,
+    responses={
+        201: {
+            "description": "'u' calculated successfully.",
+            "content": {
+                "application/json": {
+                    "example": {"result": "Shared u calculated successfully."}
+                }
+            },
+        },
+        400: {
+            "description": "Server is not initialized.",
+            "content": {
+                "application/json": {"example": {"detail": "p is not initialized."}}
+            },
+        },
+        403: {
+            "description": "Forbidden. User does not have permission.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "You do not have permission to access this resource."
+                    }
+                }
+            },
+        },
+    },
+)
+async def calculate_u(current_user: dict = Depends(get_current_user)):
+    """
+    Calculates the shared 'u' value from distributed 'u' shares.
+    """
+    if current_user.get("isAdmin") == False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    validate_initialized(["p"])
+    validate_initialized_shares_array(["shared_u"])
+
+    state["shares"]["u"] = sum(state.get("shares", {}).get("shared_u", [])) % state.get(
+        "p", 0
+    )
+
+    return {"result": "Shared u calculated successfully."}

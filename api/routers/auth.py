@@ -17,7 +17,7 @@ router = APIRouter(
     "/register",
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
-    response_description="User registered successfully.",
+    response_description="User registered successfully and access tokens issued for multiple servers.",
     response_model=AuthenticationResponse,
     responses={
         201: {
@@ -26,14 +26,7 @@ router = APIRouter(
                 "application/json": {
                     "example": {
                         "access_tokens": [
-                            {
-                                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                "server": "server1",
-                            },
-                            {
-                                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                "server": "server2",
-                            },
+                            {"access_token": "eyJ...", "server": "server1"}
                         ],
                         "token_type": "bearer",
                     }
@@ -50,7 +43,7 @@ router = APIRouter(
 )
 async def register(user_req_data: RegisterData):
     """
-    Registers a new user in the system and returns access tokens.
+    Registers a new user and returns access tokens for available servers.
 
     Request Body:
     - `email`: The email address of the user.
@@ -91,7 +84,7 @@ async def register(user_req_data: RegisterData):
     "/login",
     status_code=status.HTTP_200_OK,
     summary="Login a user",
-    response_description="User logged in successfully.",
+    response_description="User logged in successfully and received access tokens.",
     response_model=AuthenticationResponse,
     responses={
         200: {
@@ -100,14 +93,7 @@ async def register(user_req_data: RegisterData):
                 "application/json": {
                     "example": {
                         "access_tokens": [
-                            {
-                                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                "server": "server1",
-                            },
-                            {
-                                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                                "server": "server2",
-                            },
+                            {"access_token": "eyJ...", "server": "server1"}
                         ],
                         "token_type": "bearer",
                     }
@@ -126,7 +112,7 @@ async def register(user_req_data: RegisterData):
 )
 async def login(user_req_data: LoginData):
     """
-    Logs in a user and returns an access tokens.
+    Authenticates a user and returns access tokens upon successful login.
 
     Request Body:
     - `email`: The email address of the user.

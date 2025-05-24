@@ -14,8 +14,8 @@ router = APIRouter(
 @router.post(
     "/reset-calculation",
     status_code=status.HTTP_201_CREATED,
-    summary="Reset the calculation",
-    response_description="Calculation has been reset.",
+    summary="Reset calculation values",
+    response_description="Calculation parameters and temporary share values have been cleared.",
     response_model=ResultResponse,
     responses={
         201: {
@@ -29,9 +29,7 @@ router = APIRouter(
         400: {
             "description": "Server is not initialized.",
             "content": {
-                "application/json": {
-                    "example": {"detail": "Server is not initialized."}
-                }
+                "application/json": {"example": {"detail": "n is not initialized."}}
             },
         },
         403: {
@@ -48,7 +46,7 @@ router = APIRouter(
 )
 async def reset_calculation(current_user: dict = Depends(get_current_user)):
     """
-    Resets the calculation, clearing intermediate values.
+    Clears temporary calculation values (multiplicative_share, additive_share, xor_share).
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -80,8 +78,8 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
 @router.post(
     "/reset-comparison",
     status_code=status.HTTP_201_CREATED,
-    summary="Reset the comparison",
-    response_description="Comparison has been reset.",
+    summary="Reset comparison values",
+    response_description="Comparison-specific shares and tables reset to their initial state.",
     response_model=ResultResponse,
     responses={
         201: {
@@ -95,9 +93,7 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
         400: {
             "description": "Server is not initialized.",
             "content": {
-                "application/json": {
-                    "example": {"detail": "Server is not initialized."}
-                }
+                "application/json": {"example": {"detail": "n is not initialized."}}
             },
         },
         403: {
@@ -114,7 +110,7 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
 )
 async def reset_comparison(current_user: dict = Depends(get_current_user)):
     """
-    Resets the comparison, clearing comparison-specific values.
+    Resets all values related to the comparison protocol.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -126,13 +122,9 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
 
     state.update(
         {
-            # temporary results of arithmetic operations on shares
             "multiplicative_share": None,
             "additive_share": None,
             "xor_share": None,
-            # constant value for multiplication, changes only based on parameters
-            "A": None,
-            # values used for comparison
             "random_number_bit_shares": [],
             "random_number_share": None,
             "comparison_a": None,
@@ -144,7 +136,6 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
 
     state["shares"].update(
         {
-            "client_shares": None,
             "shared_r": [None] * state["n"],
             "shared_q": [None] * state["n"],
             "shared_u": [None] * state["n"],
@@ -160,7 +151,7 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
     "/factory-reset",
     status_code=status.HTTP_201_CREATED,
     summary="Perform a factory reset",
-    response_description="Server has been factory reset.",
+    response_description="All server parameters and shares have been reset to uninitialized state.",
     response_model=ResultResponse,
     responses={
         201: {
@@ -169,6 +160,7 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
                 "application/json": {"example": {"result": "Factory reset successful"}}
             },
         },
+        400: {"description": "Invalid request."},
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -183,7 +175,7 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
 )
 async def factory_reset(current_user: dict = Depends(get_current_user)):
     """
-    Resets the server to its initial, uninitialized state.
+    Performs a full reset of the server state to its initial, uninitialized configuration.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -193,17 +185,14 @@ async def factory_reset(current_user: dict = Depends(get_current_user)):
 
     state.update(
         {
-            # parameters
             "t": None,
             "n": None,
             "id": None,
             "p": None,
             "parties": None,
-            # temporary results of arithmetic operations on shares
             "multiplicative_share": None,
             "additive_share": None,
             "xor_share": None,
-            # shares
             "shares": {
                 "client_shares": None,
                 "shared_r": None,
@@ -212,9 +201,7 @@ async def factory_reset(current_user: dict = Depends(get_current_user)):
                 "u": None,
                 "v": None,
             },
-            # constant value for multiplication, changes only based on parameters
             "A": None,
-            # values used for comparison
             "random_number_bit_shares": [],
             "random_number_share": None,
             "comparison_a": None,

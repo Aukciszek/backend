@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse
+from api.utils.utils import validate_initialized_shares_array
 
 router = APIRouter(
     prefix="/api",
@@ -14,38 +15,18 @@ router = APIRouter(
     "/calculate-multiplicative-share",
     status_code=status.HTTP_201_CREATED,
     summary="Calculate multiplicative share",
-    response_description="Multiplicative share has been calculated.",
+    response_description="Multiplicative share computed as the modulo sum of all received r shares.",
     response_model=ResultResponse,
     responses={
         201: {
-            "description": "Multiplicative share calculated.",
+            "description": "Multiplicative share calculated successfully.",
             "content": {
                 "application/json": {
                     "example": {"result": "Multiplicative share calculated"}
                 }
             },
         },
-        400: {
-            "description": "Invalid request.",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "invalid_state": {
-                            "value": {
-                                "detail": "Server must be in r calculated and shared state."
-                            },
-                            "summary": "Invalid server state",
-                        },
-                        "missing_params": {
-                            "value": {
-                                "detail": "set_in_temporary_zZ_index must be provided when calculate_for_xor is False."
-                            },
-                            "summary": "Missing parameter",
-                        },
-                    }
-                }
-            },
-        },
+        400: {"description": "Invalid request."},
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -62,13 +43,15 @@ async def calculate_multiplicative_share(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Calculates a multiplicative share used in secure multiplication protocols.
+    Calculates the multiplicative share as the sum of the shared_r values modulo p.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
+
+    validate_initialized_shares_array(["shared_r"])
 
     state["multiplicative_share"] = sum(
         [

@@ -33,7 +33,7 @@ app = FastAPI(
         },
         {
             "name": "Redistribution",
-            "description": "Endpoints for redistributing intermediate values (q and r).",
+            "description": "Endpoints for redistributing intermediate values (u, q, and r).",
         },
         {
             "name": "Multiplication",
@@ -45,7 +45,7 @@ app = FastAPI(
         },
         {
             "name": "Reconstruction",
-            "description": "Endpoint for reconstructing the final secret or comparison result.",
+            "description": "Endpoint for reconstructing the final secret or value.",
         },
         {
             "name": "Reset",

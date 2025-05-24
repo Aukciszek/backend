@@ -8,7 +8,7 @@ from api.models.parsers import (
     SetClientShareData,
     SetShareData,
 )
-from api.utils.utils import validate_initialized
+from api.utils.utils import validate_initialized, validate_initialized_shares
 
 router = APIRouter(
     prefix="/api",
@@ -51,7 +51,7 @@ async def set_client_shares(
     values: SetClientShareData, current_user: dict = Depends(get_current_user)
 ):
     """
-    Sets the client’s share using the hexadecimal share string from the request.
+    Sets the client's share using the hexadecimal share string from the request.
 
     Request Body:
     - `client_id`: The ID of the client
@@ -63,14 +63,13 @@ async def set_client_shares(
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("shares", {}).get("client_shares") is None:
-        state["shares"]["client_shares"] = []
+    validate_initialized_shares(["client_shares"])
 
     if (
         next(
             (
                 x
-                for x, _ in state.get("shares", {}).get("clientP_shares", [])
+                for x, _ in state.get("shares", {}).get("client_shares", [])
                 if x == current_user.get("uid")
             ),
             None,
@@ -105,7 +104,14 @@ async def set_client_shares(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Multiplicative share is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "multiplicative_share is not initialized."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. Only admin users can set this share.",
             "content": {
@@ -133,9 +139,9 @@ async def set_share_from_multiplicative_share(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["multiplicative_share", "shares"])
+    validate_initialized(["multiplicative_share"])
 
-    state["shares"][share_name] = state["multiplicative_share"]
+    state["shares"][share_name] = state.get("multiplicative_share", 0)
 
     return {"result": f"Share {share_name} set from multiplicative share."}
 
@@ -184,8 +190,6 @@ async def set_shares(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["shares"])
-
     state["shares"][values.share_name] = int(values.share_value, 16)
 
     return {"result": f"Share {values.share_name} set successfully."}
@@ -206,7 +210,14 @@ async def set_shares(
                 }
             },
         },
-        400: {"description": "Invalid share names provided."},
+        400: {
+            "description": "Invalid request. Shares not initialized or invalid share names.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid share names provided."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. Only admin users can calculate shares.",
             "content": {
@@ -236,7 +247,8 @@ async def calculate_additive_share(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["shares"])
+    validate_initialized_shares([values.first_share_name, values.second_share_name])
+    validate_initialized(["p"])
 
     first_share = state.get("shares", {}).get(values.first_share_name, None)
     second_share = state.get("shares", {}).get(values.second_share_name, None)
@@ -267,7 +279,14 @@ async def calculate_additive_share(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Additive share is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "additive_share is not initialized."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. Only admin users can set this share.",
             "content": {
@@ -295,8 +314,8 @@ async def set_share_from_additive_share(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["additive_share", "shares"])
+    validate_initialized(["additive_share"])
 
-    state["shares"][share_name] = state["additive_share"]
+    state["shares"][share_name] = state.get("additive_share", 0)
 
     return {"result": f"Share {share_name} set from additive share."}

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse
-from api.utils.utils import validate_initialized_shares_array
+from api.utils.utils import validate_initialized, validate_initialized_shares_array
 
 router = APIRouter(
     prefix="/api",
@@ -26,7 +26,12 @@ router = APIRouter(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Server is not initialized or shares are not provided.",
+            "content": {
+                "application/json": {"example": {"detail": "n is not initialized."}}
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -51,6 +56,7 @@ async def calculate_multiplicative_share(
             detail="You do not have permission to access this resource.",
         )
 
+    validate_initialized(["n", "p"])
     validate_initialized_shares_array(["shared_r"])
 
     state["multiplicative_share"] = sum(

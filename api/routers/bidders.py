@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import BiddersResponse
-from api.utils.utils import validate_initialized
+from api.utils.utils import validate_initialized, validate_initialized_shares
 
 router = APIRouter(
     prefix="/api",
@@ -22,7 +22,12 @@ router = APIRouter(
             "description": "Bidder list retrieved successfully.",
             "content": {"application/json": {"example": {"bidders": [1, 2, 3]}}},
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Server is not initialized.",
+            "content": {
+                "application/json": {"example": {"detail": "n is not initialized."}}
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -46,6 +51,7 @@ async def get_bidders(current_user: dict = Depends(get_current_user)):
         )
 
     validate_initialized(["n"])
+    validate_initialized_shares(["client_shares"])
 
     bidders = [item[0] for item in state.get("shares", {}).get("client_shares", [])]
 

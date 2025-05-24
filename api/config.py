@@ -26,8 +26,6 @@ state = {
         "shared_r": None,
         "shared_q": None,
         "shared_u": None,
-        "u": None,
-        "v": None,
     },
     # constant value for multiplication, changes only based on parameters
     "A": None,

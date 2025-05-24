@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse
-from api.utils.utils import validate_initialized
+from api.utils.utils import validate_initialized, validate_initialized_shares
 
 router = APIRouter(
     prefix="/api",
@@ -24,7 +24,14 @@ router = APIRouter(
                 "application/json": {"example": {"result": "XOR share calculated"}}
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Additive share, multiplicative share, or p is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "additive_share is not initialized."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -48,6 +55,8 @@ async def calculate_xor_share(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
+    validate_initialized(["additive_share", "multiplicative_share", "p"])
+
     state["xor_share"] = (
         state.get("additive_share", 0) - 2 * state.get("multiplicative_share", 0)
     ) % state.get("p", 0)
@@ -70,7 +79,14 @@ async def calculate_xor_share(current_user: dict = Depends(get_current_user)):
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "XOR share is not initialized.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "xor_share is not initialized."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -98,9 +114,9 @@ async def set_share_from_xor_share(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["xor_share", "shares"])
+    validate_initialized(["xor_share"])
 
-    state["shares"][share_name] = state["xor_share"]
+    state["shares"][share_name] = state.get("xor_share", 0)
 
     return {"result": f"Share {share_name} set from xor share."}
 
@@ -122,7 +138,12 @@ async def set_share_from_xor_share(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Server is not initialized or shares are not provided.",
+            "content": {
+                "application/json": {"example": {"detail": "id is not initialized."}}
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -150,12 +171,15 @@ async def set_random_number_bit_share_to_temporary_random_bit_share(
             detail="You do not have permission to access this resource.",
         )
 
+    validate_initialized(["id"])
+    validate_initialized_shares(["temporary_random_bit"])
+
     while len(state.get("random_number_bit_shares", [])) < bit_index + 1:
         state["random_number_bit_shares"].append(None)
 
     state["random_number_bit_shares"][bit_index] = (
-        state.get("id", 0),
-        state.get("shares", {}).get("temporary_random_bit", None),
+        state.get("id", None),
+        state.get("shares", {}).get("temporary_random_bit", 0),
     )
 
     return {"result": f"Random number bit share at index {bit_index} set successfully."}

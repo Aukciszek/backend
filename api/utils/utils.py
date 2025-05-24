@@ -40,7 +40,7 @@ def validate_initialized_shares_array(required_keys):
             if value is None:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"The element at '{key}[{i}]' is not initialized.",
+                    detail=f"The element at '['shares']{key}[{i}]' is not initialized.",
                 )
 
 

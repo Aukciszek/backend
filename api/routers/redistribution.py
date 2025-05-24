@@ -1,5 +1,4 @@
 import asyncio
-import random
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -82,7 +81,7 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
                 continue
 
             url = f"{state['parties'][i]}/api/receive-q-from-parties"
-            json_data = {"party_id": state.get("id"), "shared_q": hex(q[i][1])}
+            json_data = {"party_id": state.get("id", None), "shared_q": hex(q[i][1])}
             tasks.append(send_post_request(session, url, json_data))
 
         await asyncio.gather(*tasks)
@@ -242,13 +241,13 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
             detail="Invalid share names provided.",
         )
 
-    qs = [x for x in state.get("shares", {}).get("shared_q", []) if x is not None]
+    qs = [x for x in state.get("shares", {}).get("shared_q", [])]
 
     multiplied_shares = ((first_share * second_share) + sum(qs)) % state.get("p", 0)
 
     r = [
         (multiplied_shares * state.get("A", 0)[state.get("id", 0) - 1][i])
-        % state.get("p")
+        % state.get("p", 0)
         for i in range(state.get("n", 0))
     ]
 
@@ -261,7 +260,7 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
                 continue
 
             url = f"{state['parties'][i]}/api/receive-r-from-parties"
-            json_data = {"party_id": state.get("id"), "shared_r": hex(r[i])}
+            json_data = {"party_id": state.get("id", None), "shared_r": hex(r[i])}
             tasks.append(send_post_request(session, url, json_data))
 
         await asyncio.gather(*tasks)
@@ -339,6 +338,8 @@ async def set_received_r(values: SharedRData, request: Request):
     #         detail="You do not have permission to access this resource.",
     #     ) TODO:
 
+    validate_initialized_shares(["shared_r"])
+
     if (
         values.party_id > len(state.get("shares", {}).get("shared_r", []))
         or values.party_id < 1
@@ -404,7 +405,12 @@ async def redistribute_u(current_user: dict = Depends(get_current_user)):
     validate_initialized(["t", "n", "p", "id", "parties"])
     validate_initialized_shares(["shared_u"])
 
-    u = Shamir(state["t"], state["n"], secure_randint(1, state.get("p", 0)), state["p"])
+    u = Shamir(
+        state.get("t", 0),
+        state.get("n", 0),
+        secure_randint(1, state.get("p", 0)),
+        state.get("p", 0),
+    )
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -414,7 +420,7 @@ async def redistribute_u(current_user: dict = Depends(get_current_user)):
                 continue
 
             url = f"{state['parties'][i]}/api/receive-u-from-parties"
-            json_data = {"party_id": state.get("id"), "shared_u": hex(u[i][1])}
+            json_data = {"party_id": state.get("id", None), "shared_u": hex(u[i][1])}
             tasks.append(send_post_request(session, url, json_data))
 
         await asyncio.gather(*tasks)
@@ -491,6 +497,8 @@ async def receive_u_from_parties(values: SharedUData, request: Request):
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
     #     ) TODO:
+
+    validate_initialized_shares(["shared_u"])
 
     if (
         values.party_id > len(state.get("shares", {}).get("shared_u", []))

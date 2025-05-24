@@ -168,10 +168,10 @@ async def get_initial_values(_: dict = Depends(get_current_user)):
     validate_initialized(["t", "n", "p", "parties"])
 
     return {
-        "t": state.get("t"),
-        "n": state.get("n"),
+        "t": state.get("t", 0),
+        "n": state.get("n", 0),
         "p": hex(state.get("p", 0)),
-        "parties": state.get("parties"),
+        "parties": state.get("parties", []),
     }
 
 
@@ -230,10 +230,10 @@ async def calculate_A(current_user: dict = Depends(get_current_user)):
     B = [list(range(1, state.get("n", 0) + 1)) for _ in range(state.get("n", 0))]
     for j in range(state.get("n", 0)):
         for k in range(state.get("n", 0)):
-            B[j][k] = binary_exponentiation(B[j][k], j, state.get("p"))
+            B[j][k] = binary_exponentiation(B[j][k], j, state.get("p", 0))
 
     # Compute inverse of B
-    B_inv = inverse_matrix_mod(B, state.get("p"))
+    B_inv = inverse_matrix_mod(B, state.get("p", 0))
 
     # Generate matrix P
     P = [[0] * state.get("n", 0) for _ in range(state.get("n", 0))]
@@ -242,7 +242,7 @@ async def calculate_A(current_user: dict = Depends(get_current_user)):
 
     # Compute matrix A
     state["A"] = multiply_matrix(
-        multiply_matrix(B_inv, P, state.get("p")), B, state.get("p")
+        multiply_matrix(B_inv, P, state.get("p", 0)), B, state.get("p", 0)
     )
 
     return {"result": "Matrix A calculated successfully."}

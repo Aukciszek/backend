@@ -136,11 +136,9 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
 
     state["shares"].update(
         {
-            "shared_r": [None] * state["n"],
-            "shared_q": [None] * state["n"],
-            "shared_u": [None] * state["n"],
-            "u": None,
-            "v": None,
+            "shared_r": [None] * state.get("n", 0),
+            "shared_q": [None] * state.get("n", 0),
+            "shared_u": [None] * state.get("n", 0),
         }
     )
 

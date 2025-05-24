@@ -15,7 +15,6 @@ from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
     send_get_request,
-    send_post_request,
     validate_initialized,
     validate_initialized_shares,
 )
@@ -81,7 +80,7 @@ async def get_calculated_share(values: ShareToReconstruct, request: Request):
     validate_initialized_shares([values.share_to_reconstruct])
 
     return {
-        "id": state.get("id"),
+        "id": state.get("id", None),
         "share_to_reconstruct": hex(
             state.get("shares", {}).get(values.share_to_reconstruct, 0)
         ),
@@ -158,13 +157,13 @@ async def return_secret(
 
         calculated_shares.append(
             (
-                state.get("id"),
+                state.get("id", None),
                 state.get("shares", {}).get(values.share_to_reconstruct, 0),
             )
         )
 
-        coefficients = computate_coefficients(calculated_shares, state.get("p"))
+        coefficients = computate_coefficients(calculated_shares, state.get("p", 0))
 
-        secret = reconstruct_secret(calculated_shares, coefficients, state.get("p"))
+        secret = reconstruct_secret(calculated_shares, coefficients, state.get("p", 0))
 
         return {"secret": hex(secret % state.get("p", 0))}

@@ -11,7 +11,13 @@ from api.models.parsers import (
     PrepareZTablesData,
     ResultResponse,
 )
-from api.utils.utils import binary, send_post_request
+from api.utils.utils import (
+    binary,
+    send_post_request,
+    validate_initialized,
+    validate_initialized_shares,
+    validate_initialized_shares_array,
+)
 
 router = APIRouter(
     prefix="/api",
@@ -80,6 +86,9 @@ async def calculate_a_comparison(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
+
+    validate_initialized(["random_number_share"])
+    validate_initialized_shares(["client_shares"])
 
     if len(state.get("shares", {}).get("client_shares", [])) < 2:
         raise HTTPException(
@@ -203,7 +212,14 @@ async def prepare_z_tables(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Index out of bounds for comparison_a_bits or random_number_bit_shares.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Index out of bounds for comparison_a_bits."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -226,6 +242,19 @@ async def calculate_additive_share_of_z_table_arguments(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
+        )
+
+    validate_initialized(["p"])
+
+    if index < 0 or index >= len(state.get("comparison_a_bits", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for comparison_a_bits.",
+        )
+    if index >= len(state.get("random_number_bit_shares", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for random_number_bit_shares.",
         )
 
     first_share = state.get("comparison_a_bits", [])[index]
@@ -287,6 +316,20 @@ async def calculate_r_of_z_table(
             detail="You do not have permission to access this resource.",
         )
 
+    validate_initialized(["p", "A", "n", "id"])
+    validate_initialized_shares_array(["shared_q"])
+
+    if index < 0 or index >= len(state.get("comparison_a_bits", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for comparison_a_bits.",
+        )
+    if index >= len(state.get("random_number_bit_shares", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for random_number_bit_shares.",
+        )
+
     first_share = state.get("comparison_a_bits", [])[index]
     second_share = state.get("random_number_bit_shares", [])[index][1]
 
@@ -296,13 +339,13 @@ async def calculate_r_of_z_table(
             detail="Invalid share names provided.",
         )
 
-    qs = [x for x in state.get("shares", {}).get("shared_q", []) if x is not None]
+    qs = [x for x in state.get("shares", {}).get("shared_q", [])]
 
     multiplied_shares = ((first_share * second_share) + sum(qs)) % state.get("p", 0)
 
     r = [
         (multiplied_shares * state.get("A", 0)[state.get("id", 0) - 1][i])
-        % state.get("p")
+        % state.get("p", 0)
         for i in range(state.get("n", 0))
     ]
 
@@ -315,7 +358,7 @@ async def calculate_r_of_z_table(
                 continue
 
             url = f"{state['parties'][i]}/api/receive-r-from-parties"
-            json_data = {"party_id": state.get("id"), "shared_r": hex(r[i])}
+            json_data = {"party_id": state.get("id", None), "shared_r": hex(r[i])}
             tasks.append(send_post_request(session, url, json_data))
 
         await asyncio.gather(*tasks)
@@ -342,7 +385,14 @@ async def calculate_r_of_z_table(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Index out of bounds for z_table.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Index out of bounds for z_table."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -367,7 +417,15 @@ async def set_z_table_to_xor_share(
             detail="You do not have permission to access this resource.",
         )
 
-    state["z_table"][index] = state["xor_share"]
+    validate_initialized(["xor_share"])
+
+    if index < 0 or index >= len(state.get("z_table", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for z_table.",
+        )
+
+    state["z_table"][index] = state.get("xor_share", 0)
 
     return {"result": f"z table at index {index} set to XOR share successfully."}
 
@@ -387,7 +445,16 @@ async def set_z_table_to_xor_share(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Invalid value for l. It must be between 1 and the length of z_table or Z_table.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Invalid value for l. It must be between 1 and the length of z_table."
+                    }
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -410,6 +477,17 @@ async def initialize_z_and_Z(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
+        )
+
+    if values.l < 1 or values.l > len(state.get("z_table", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid value for l. It must be between 1 and the length of z_table.",
+        )
+    if values.l > len(state.get("Z_table", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid value for l. It must be between 1 and the length of Z_table.",
         )
 
     state["shares"]["z"] = state.get("z_table", [])[values.l - 1]
@@ -435,7 +513,14 @@ async def initialize_z_and_Z(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Index out of bounds for z_table or Z_table.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Index out of bounds for z_table."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -458,6 +543,19 @@ async def prepare_for_next_romb(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
+        )
+
+    validate_initialized_shares(["z", "Z"])
+
+    if index > len(state.get("z_table", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for z_table.",
+        )
+    if index > len(state.get("Z_table", [])):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Index out of bounds for Z_table.",
         )
 
     state["shares"]["x"] = state.get("shares", {}).get("z", 0)
@@ -490,7 +588,14 @@ async def prepare_for_next_romb(
                 }
             },
         },
-        400: {"description": "Invalid request."},
+        400: {
+            "description": "Invalid comparison_a_bit_index or random_number_bit_share_index.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid comparison_a_bit_index."}
+                }
+            },
+        },
         403: {
             "description": "Forbidden. User does not have permission.",
             "content": {
@@ -516,6 +621,21 @@ async def prepare_shares_for_res_xors(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
+        )
+
+    if comparison_a_bit_index < 0 or comparison_a_bit_index >= len(
+        state.get("comparison_a_bits", [])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid comparison_a_bit_index.",
+        )
+    if random_number_bit_share_index < 0 or random_number_bit_share_index >= len(
+        state.get("random_number_bit_shares", [])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid random_number_bit_share_index.",
         )
 
     state["shares"]["a_l"] = state.get("comparison_a_bits", [])[comparison_a_bit_index]

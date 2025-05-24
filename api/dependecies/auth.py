@@ -84,10 +84,13 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         uid = payload.get("uid")
         if uid is None:
             raise credentials_exception
+        email = payload.get("email")
+        if email is None:
+            raise credentials_exception
         is_admin = payload.get("isAdmin")
         if is_admin is None:
             raise credentials_exception
-        token_data = TokenData(uid=uid, isAdmin=is_admin)
+        token_data = TokenData(uid=uid, email=email, isAdmin=is_admin)
     except jwt.InvalidTokenError:
         raise credentials_exception
     return {"uid": token_data.uid, "isAdmin": token_data.isAdmin}

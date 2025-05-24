@@ -73,7 +73,11 @@ async def register(user_req_data: RegisterData):
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_tokens = create_access_tokens(
-        data={"uid": user.data[0].get("uid"), "isAdmin": user.data[0].get("isAdmin")},
+        data={
+            "uid": user.data[0].get("uid"),
+            "email": user.data[0].get("email"),
+            "isAdmin": user.data[0].get("isAdmin"),
+        },
         expires_delta=access_token_expires,
     )
 
@@ -129,7 +133,11 @@ async def login(user_req_data: LoginData):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     access_tokens = create_access_tokens(
-        data={"uid": user.data[0].get("uid"), "isAdmin": user.data[0].get("isAdmin")},
+        data={
+            "uid": user.data[0].get("uid"),
+            "email": user.data[0].get("email"),
+            "isAdmin": user.data[0].get("isAdmin"),
+        },
         expires_delta=access_token_expires,
     )
 

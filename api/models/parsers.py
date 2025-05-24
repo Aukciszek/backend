@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class InitialValuesData(BaseModel):
@@ -61,7 +61,7 @@ class SharedRData(BaseModel):
 class RegisterData(BaseModel):
     """Data model for registration endpoint."""
 
-    email: str
+    email: EmailStr
     password: str
     is_admin: bool
 
@@ -120,6 +120,7 @@ class TokenData(BaseModel):
     """Data model for token payload."""
 
     uid: int | None = None
+    email: str | None = None
     isAdmin: bool | None = None
 
 

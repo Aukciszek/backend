@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import STATUS, state
+from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import BiddersResponse
 from api.utils.utils import validate_initialized
@@ -52,13 +52,8 @@ async def get_bidders(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("status") == STATUS.NOT_INITIALIZED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
-        )
-
     validate_initialized(["n"])
 
-    bidders = [item[0] for item in state.get("client_shares", [])]
+    bidders = [item[0] for item in state.get("shares", {}).get("client_shares", [])]
 
     return {"bidders": bidders}

@@ -13,26 +13,33 @@ TEMPORARY_Z0 = 0
 TEMPORARY_Z1 = 1
 
 
-class STATUS(Enum):
-    NOT_INITIALIZED = "Server not initialized"
-    INITIALIZED = "Server initialized"
-    Q_CALC_SHARED = "Calculated and shared q"
-    R_CALC_SHARED = "Calculated and shared r"
-    SHARE_CALCULATED = "Share calculated"
-
-
 state = {
+    # parameters
     "t": None,
     "n": None,
     "id": None,
     "p": None,
     "parties": None,
-    "client_shares": None,
-    "zZ": None,
-    "temporary_zZ": None,
-    "xor_multiplication": None,
-    "shared_q": None,
-    "shared_r": None,
-    "calculated_share": None,
-    "status": STATUS.NOT_INITIALIZED,
+    # temporary results of arithmetic operations on shares
+    "multiplicative_share": None,
+    "additive_share": None,
+    "xor_share": None,
+    # shares
+    "shares": {
+        "client_shares": None,
+        "shared_r": None,
+        "shared_q": None,
+        "shared_u": None,
+        "u": None,
+        "v": None,
+    },
+    # constant value for multiplication, changes only based on parameters
+    "A": None,
+    # values used for comparison
+    "random_number_bit_shares": [],
+    "random_number_share": None,
+    "comparison_a": None,
+    "z_table": [],
+    "Z_table": [],
+    "comparison_a_bits": [],
 }

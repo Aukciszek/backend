@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import TEMPORARY_Z1, state
+from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ResultResponse, XorData
-from api.utils.utils import get_temporary_zZ, set_temporary_zZ
+from api.models.parsers import ResultResponse
 
 router = APIRouter(
     prefix="/api",
@@ -12,11 +11,10 @@ router = APIRouter(
 
 
 @router.post(
-    "/xor",
+    "/calculate-xor-share",
     status_code=status.HTTP_201_CREATED,
     summary="Perform secure XOR operation",
     response_description="Additive share resulting from XOR operation has been calculated.",
-    response_model=ResultResponse,
     responses={
         201: {
             "description": "Additive share calculated.",
@@ -36,7 +34,7 @@ router = APIRouter(
         },
     },
 )
-async def addition(values: XorData, current_user: dict = Depends(get_current_user)):
+async def calculate_xor_share(current_user: dict = Depends(get_current_user)):
     """
     Performs a secure XOR operation on shared values.
 
@@ -51,26 +49,6 @@ async def addition(values: XorData, current_user: dict = Depends(get_current_use
             detail="You do not have permission to access this resource.",
         )
 
-    # Extract the first multiplication factor
-    first_multiplication_factor = state.get("zZ", [])[
-        values.zZ_first_multiplication_factor[0]
-    ][values.zZ_first_multiplication_factor[1]]
-
-    # Extract the second multiplication factor based on the condition
-    second_multiplication_factor = (
-        get_temporary_zZ(values.zZ_second_multiplication_factor[0])
-        if values.take_value_from_temporary_zZ
-        else state.get("zZ", [])[values.zZ_second_multiplication_factor[0]][
-            values.zZ_second_multiplication_factor[1]
-        ]
-    )
-
-    # Calculate the result and update state
-    result = (
-        first_multiplication_factor
-        + second_multiplication_factor
-        - 2 * state.get("xor_multiplication", 0)
-    )
-    set_temporary_zZ(TEMPORARY_Z1, result)
-
-    return {"result": "Additive share calculated"}
+    state["xor_share"] = (
+        state.get("additive_share", 0) - 2 * state.get("multiplicative_share", 0)
+    ) % state.get("p", 0)

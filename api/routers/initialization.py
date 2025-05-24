@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import SERVERS, STATUS, state
+from api.config import SERVERS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import InitialValuesData, InitialValuesResponse, ResultResponse
 from api.utils.utils import validate_initialized, validate_not_initialized
@@ -74,9 +74,7 @@ async def set_initial_values(
             detail="You do not have permission to access this resource.",
         )
 
-    validate_not_initialized(
-        ["t", "n", "id", "p", "shared_q", "shared_r", "parties", "client_shares"]
-    )
+    validate_not_initialized(["t", "n", "id", "p", "parties"])
 
     if not isinstance(SERVERS, (list, tuple)):
         raise HTTPException(
@@ -104,11 +102,13 @@ async def set_initial_values(
             "n": n,
             "id": values.id,
             "p": int(values.p, 16),
-            "shared_q": [None] * n,
-            "shared_r": [None] * n,
             "parties": SERVERS,
-            "client_shares": [],
-            "status": STATUS.INITIALIZED,
+            "shares": {
+                "client_shares": [],
+                "shared_r": [None] * n,
+                "shared_q": [None] * n,
+                "shared_u": [None] * n,
+            },
         }
     )
 
@@ -163,10 +163,6 @@ async def get_initial_values(_: dict = Depends(get_current_user)):
     """
     Returns the currently set initial values.
     """
-    if state.get("status") == STATUS.NOT_INITIALIZED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
-        )
 
     validate_initialized(["t", "n", "p", "parties"])
 

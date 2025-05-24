@@ -4,14 +4,19 @@ from random import sample
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.config import STATUS, TRUSTED_IPS, state
+from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import CalculatedShareResponse, ReconstructedSecretResponse
+from api.models.parsers import (
+    CalculatedShareResponse,
+    ReconstructedSecretResponse,
+    ShareToReconstruct,
+)
 from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
-    send_get_request,
+    send_post_request,
     validate_initialized,
+    validate_initialized_shares,
 )
 
 router = APIRouter(
@@ -20,12 +25,11 @@ router = APIRouter(
 )
 
 
-@router.get(
+@router.post(
     "/return-calculated-share",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     summary="Return the calculated share",
     response_description="Returns the calculated share.",
-    response_model=CalculatedShareResponse,
     responses={
         200: {
             "description": "Calculated share returned.",
@@ -66,7 +70,7 @@ router = APIRouter(
         },
     },
 )
-async def get_calculated_share(request: Request):
+async def get_calculated_share(values: ShareToReconstruct, request: Request):
     """
     Returns the calculated share.
     """
@@ -82,20 +86,22 @@ async def get_calculated_share(request: Request):
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["calculated_share", "id"])
+    validate_initialized(["id"])
+    validate_initialized_shares([values.share_to_reconstruct])
 
     return {
         "id": state.get("id"),
-        "calculated_share": hex(state.get("calculated_share", 0)),
+        "share_to_reconstruct": hex(
+            state.get("shares", {}).get(values.share_to_reconstruct, 0)
+        ),
     }
 
 
-@router.get(
+@router.post(
     "/reconstruct-secret",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     summary="Reconstruct the secret",
     response_description="Returns the reconstructed secret.",
-    response_model=ReconstructedSecretResponse,
     responses={
         200: {
             "description": "Secret reconstructed successfully.",
@@ -121,7 +127,9 @@ async def get_calculated_share(request: Request):
         },
     },
 )
-async def return_secret(current_user: dict = Depends(get_current_user)):
+async def return_secret(
+    values: ShareToReconstruct, current_user: dict = Depends(get_current_user)
+):
     """
     Reconstructs the secret from the shared values.
     """
@@ -131,13 +139,8 @@ async def return_secret(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("status") != STATUS.SHARE_CALCULATED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Server must be in share calculated state.",
-        )
-
-    validate_initialized(["calculated_share", "parties", "id", "t", "p"])
+    validate_initialized(["parties", "id", "t", "p"])
+    validate_initialized_shares([values.share_to_reconstruct])
 
     parties = [
         party
@@ -151,16 +154,26 @@ async def return_secret(current_user: dict = Depends(get_current_user)):
         tasks = []
         for party in selected_parties:
             url = f"{party}/api/return-calculated-share"
-            tasks.append(send_get_request(session, url))
+            json_data = {
+                "share_to_reconstruct": values.share_to_reconstruct,
+            }
+            tasks.append(send_post_request(session, url, json_data))
 
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=False)
+
+        print(results)
 
         for result in results:
             calculated_shares.append(
-                (result.get("id"), int(result.get("calculated_share"), 16))
+                (result.get("id"), int(result.get("share_to_reconstruct"), 16))
             )
 
-        calculated_shares.append((state.get("id"), state.get("calculated_share")))
+        calculated_shares.append(
+            (
+                state.get("id"),
+                state.get("shares", {}).get(values.share_to_reconstruct, 0),
+            )
+        )
 
         coefficients = computate_coefficients(calculated_shares, state.get("p"))
 

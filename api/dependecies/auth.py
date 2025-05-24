@@ -78,7 +78,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Invalid SECRET_KEYS_JWT configuration",
             )
-        payload = jwt.decode(token, SECRET_KEYS_JWT[0], algorithms=[str(ALGORITHM)])
+        payload = jwt.decode(token, SECRET_KEYS_JWT[4], algorithms=[str(ALGORITHM)])
         uid = payload.get("uid")
         if uid is None:
             raise credentials_exception

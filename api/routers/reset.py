@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import STATUS, state
+from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ResultResponse
-from api.utils.utils import reset_state, validate_initialized
+from api.utils.utils import validate_initialized
 
 router = APIRouter(
     prefix="/api",
@@ -56,20 +56,21 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("status") == STATUS.NOT_INITIALIZED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
-        )
-
     validate_initialized(["n"])
-
-    reset_state(["calculated_share", "xor_multiplication"])
 
     state.update(
         {
-            "shared_q": [None] * state.get("n", 0),
+            # temporary results of arithmetic operations on shares
+            "multiplicative_share": None,
+            "additive_share": None,
+            "xor_share": None,
+        }
+    )
+
+    state["shares"].update(
+        {
             "shared_r": [None] * state.get("n", 0),
-            "status": STATUS.INITIALIZED,
+            "shared_q": [None] * state.get("n", 0),
         }
     )
 
@@ -121,23 +122,37 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("status") == STATUS.NOT_INITIALIZED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Server is not initialized."
-        )
-
     validate_initialized(["n"])
-
-    reset_state(["calculated_share", "zZ", "xor_multiplication", "temporary_zZ"])
 
     state.update(
         {
-            "shared_q": [None] * state.get("n", 0),
-            "shared_r": [None] * state.get("n", 0),
+            # temporary results of arithmetic operations on shares
+            "multiplicative_share": None,
+            "additive_share": None,
+            "xor_share": None,
+            # constant value for multiplication, changes only based on parameters
+            "A": None,
+            # values used for comparison
+            "random_number_bit_shares": [],
+            "random_number_share": None,
+            "comparison_a": None,
+            "z_table": [],
+            "Z_table": [],
+            "comparison_a_bits": [],
         }
     )
 
-    state.update({"status": STATUS.INITIALIZED})
+    state["shares"].update(
+        {
+            "client_shares": None,
+            "shared_r": [None] * state["n"],
+            "shared_q": [None] * state["n"],
+            "shared_u": [None] * state["n"],
+            "u": None,
+            "v": None,
+        }
+    )
+
     return {"result": "Reset comparison successful"}
 
 
@@ -176,22 +191,37 @@ async def factory_reset(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    reset_state(
-        [
-            "t",
-            "n",
-            "id",
-            "p",
-            "parties",
-            "shared_q",
-            "shared_r",
-            "client_shares",
-            "calculated_share",
-            "xor_multiplication",
-            "temporary_zZ",
-            "zZ",
-        ]
+    state.update(
+        {
+            # parameters
+            "t": None,
+            "n": None,
+            "id": None,
+            "p": None,
+            "parties": None,
+            # temporary results of arithmetic operations on shares
+            "multiplicative_share": None,
+            "additive_share": None,
+            "xor_share": None,
+            # shares
+            "shares": {
+                "client_shares": None,
+                "shared_r": None,
+                "shared_q": None,
+                "shared_u": None,
+                "u": None,
+                "v": None,
+            },
+            # constant value for multiplication, changes only based on parameters
+            "A": None,
+            # values used for comparison
+            "random_number_bit_shares": [],
+            "random_number_share": None,
+            "comparison_a": None,
+            "z_table": [],
+            "Z_table": [],
+            "comparison_a_bits": [],
+        }
     )
 
-    state.update({"status": STATUS.NOT_INITIALIZED})
     return {"result": "Factory reset successful"}

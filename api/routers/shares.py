@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ResultResponse, ShareData
+from api.models.parsers import ResultResponse, SetClientShareData
 from api.utils.utils import validate_initialized
 
 router = APIRouter(
@@ -12,7 +12,7 @@ router = APIRouter(
 
 
 @router.post(
-    "/set-shares",
+    "/set-client-shares",
     status_code=status.HTTP_201_CREATED,
     summary="Set a client's share",
     response_description="Client's share has been successfully set.",
@@ -32,9 +32,7 @@ router = APIRouter(
                             "summary": "Shares already set",
                         },
                         "not_initialized": {
-                            "value": {
-                                "detail": "Server is not initialized or client_shares not configured."
-                            },
+                            "value": {"detail": "Server is not initialized."},
                             "summary": "Not initialized",
                         },
                     }
@@ -53,7 +51,9 @@ router = APIRouter(
         },
     },
 )
-async def set_shares(values: ShareData, current_user: dict = Depends(get_current_user)):
+async def set_client_shares(
+    values: SetClientShareData, current_user: dict = Depends(get_current_user)
+):
     """
     Sets a client's share.
 
@@ -67,13 +67,14 @@ async def set_shares(values: ShareData, current_user: dict = Depends(get_current
             detail="You do not have permission to access this resource.",
         )
 
-    validate_initialized(["client_shares"])
+    if state.get("shares", {}).get("client_shares") is None:
+        state["shares"]["client_shares"] = []
 
     if (
         next(
             (
                 x
-                for x, _ in state.get("client_shares", [])
+                for x, _ in state.get("shares", {}).get("clientP_shares", [])
                 if x == current_user.get("uid")
             ),
             None,
@@ -85,5 +86,7 @@ async def set_shares(values: ShareData, current_user: dict = Depends(get_current
             detail="Shares already set for this client.",
         )
 
-    state["client_shares"].append((current_user.get("uid"), int(values.share, 16)))
+    state["shares"]["client_shares"].append(
+        (current_user.get("uid"), int(values.share, 16))
+    )
     return {"result": "Shares set"}

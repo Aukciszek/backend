@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import STATUS, state
+from api.config import state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import (
     AComparisonData,
@@ -8,7 +8,7 @@ from api.models.parsers import (
     ResultResponse,
     ZComparisonData,
 )
-from api.utils.utils import binary, reset_temporary_zZ
+from api.utils.utils import binary
 
 router = APIRouter(
     prefix="/api",
@@ -81,7 +81,7 @@ async def calculate_a_comparison(
             detail="You do not have permission to access this resource.",
         )
 
-    if len(state.get("client_shares", [])) < 2:
+    if len(state.get("shares", {}).get("client_shares", [])) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least two client shares must be configured.",
@@ -94,11 +94,19 @@ async def calculate_a_comparison(
         )
 
     first_client_share = next(
-        (y for x, y in state.get("client_shares", []) if x == values.first_client_id),
+        (
+            y
+            for x, y in state.get("shares", {}).get("client_shares", [])
+            if x == values.first_client_id
+        ),
         None,
     )
     second_client_share = next(
-        (y for x, y in state.get("client_shares", []) if x == values.second_client_id),
+        (
+            y
+            for x, y in state.get("shares", {}).get("client_shares", [])
+            if x == values.second_client_id
+        ),
         None,
     )
 
@@ -108,138 +116,12 @@ async def calculate_a_comparison(
             detail="Shares not set for one or both clients.",
         )
 
-    state.update(
-        {
-            "calculated_share":
-            # pow(2, values.l + values.k + 2)
-            # + pow(2, values.l)
-            first_client_share
-            - second_client_share
-        }
+    state["shares"]["comparison_a"] = (
+        pow(2, values.l + values.k + 1)
+        - state.get("random_number_share", 0)
+        + pow(2, values.l)
+        + first_client_share
+        - second_client_share
     )
 
-    state.update({"status": STATUS.SHARE_CALCULATED})
-    return {"result": "'A' for comparison calculated"}
-
-
-@router.post(
-    "/calculate-z-comparison",
-    status_code=status.HTTP_201_CREATED,
-    summary="Calculate 'Z' for comparison",
-    response_description="'Z' for comparison has been calculated.",
-    response_model=ResultResponse,
-    responses={
-        201: {
-            "description": "'Z' for comparison calculated.",
-            "content": {
-                "application/json": {
-                    "example": {"result": "'Z' for comparison calculated"}
-                }
-            },
-        },
-        403: {
-            "description": "Forbidden. User does not have permission.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "You do not have permission to access this resource."
-                    }
-                }
-            },
-        },
-    },
-)
-async def calculate_z(
-    values: ZComparisonData, current_user: dict = Depends(get_current_user)
-):
-    """
-    Calculates the 'Z' value required for the comparison protocol.
-
-    Request Body:
-    - `opened_a`: Opened value of a (hexadecimal string)
-    - `l`: length
-    - `k`: kappa
-    """
-    if current_user.get("isAdmin") == False:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this resource.",
-        )
-
-    a_bin = binary(int(values.opened_a, 16))
-
-    while len(a_bin) < values.l + values.k + 2:
-        a_bin.append(0)
-
-    zZ = []
-
-    for i in range(values.l):
-        zZ.append([a_bin[i], a_bin[i]])
-
-    zZ = list(reversed(zZ))
-    zZ.append([0, 0])
-
-    state.update({"zZ": zZ})
-    reset_temporary_zZ()
-    return {"result": "'Z' for comparison calculated"}
-
-
-@router.post(
-    "/calculate-comparison-result",
-    status_code=status.HTTP_201_CREATED,
-    summary="Calculate the final comparison result",
-    response_description="Final comparison result has been calculated.",
-    response_model=ResultResponse,
-    responses={
-        201: {
-            "description": "Comparison result calculated.",
-            "content": {
-                "application/json": {
-                    "example": {"result": "Comparison result calculated"}
-                }
-            },
-        },
-        403: {
-            "description": "Forbidden. User does not have permission.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "You do not have permission to access this resource."
-                    }
-                }
-            },
-        },
-    },
-)
-async def calculate_comparison_result(
-    values: CalculatedComparisonResultData,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Calculates the final result of the comparison.
-
-    Request Body:
-    - `opened_a`: Opened value of a (hexadecimal string)
-    - `l`: length
-    - `k`: kappa
-    """
-    if current_user.get("isAdmin") == False:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this resource.",
-        )
-
-    a_bin = binary(int(values.opened_a, 16))
-
-    while len(a_bin) < values.l + values.k + 2:
-        a_bin.append(0)
-
-    state.update(
-        {
-            "calculated_share": a_bin[values.l]
-            + state.get("zZ", [])[0][1]
-            - 2 * state.get("xor_multiplication", 0),
-            "status": STATUS.SHARE_CALCULATED,
-        }
-    )
-    return {"result": "Comparison result calculated"}
+    return {"result": "'a' for comparison calculated"}

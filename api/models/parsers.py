@@ -6,13 +6,20 @@ class InitialValuesData(BaseModel):
     p: str
 
 
-class ShareData(BaseModel):
+class SetClientShareData(BaseModel):
     share: str
+
+
+class SetShareData(BaseModel):
+    share_name: str
+    share_value: str
 
 
 class AComparisonData(BaseModel):
     first_client_id: int
     second_client_id: int
+    l: int
+    k: int
 
 
 class ZComparisonData(BaseModel):
@@ -22,24 +29,13 @@ class ZComparisonData(BaseModel):
 
 
 class RData(BaseModel):
-    take_value_from_temporary_zZ: bool = False
-    zZ_first_multiplication_factor: list[int] | None = None
-    zZ_second_multiplication_factor: list[int] | None = None
-    calculate_final_comparison_result: bool = False
-    opened_a: str | None = None
-    l: int | None = None
-    k: int | None = None
+    first_share_name: str
+    second_share_name: str
 
 
-class CalculateMultiplicativeShareData(BaseModel):
-    set_in_temporary_zZ_index: int | None = None
-    calculate_for_xor: bool
-
-
-class XorData(BaseModel):
-    take_value_from_temporary_zZ: bool
-    zZ_first_multiplication_factor: list[int]
-    zZ_second_multiplication_factor: list[int]
+class AdditiveShareData(BaseModel):
+    first_share_name: str
+    second_share_name: str
 
 
 class SharedQData(BaseModel):
@@ -138,3 +134,38 @@ class StatusResponse(BaseModel):
 class TokenData(BaseModel):
     uid: int | None = None
     isAdmin: bool | None = None
+
+
+class SharedUData(BaseModel):
+    """
+    Data model for the /api/receive-u-from-parties endpoint.
+    """
+
+    party_id: int
+    shared_u: str
+
+
+class PrepareZTablesData(BaseModel):
+    """
+    Data model for the /api/prepare-z-tables endpoint.
+    """
+
+    l: int
+    k: int
+    opened_a: str
+
+
+class InitializezAndZZData(BaseModel):
+    """
+    Data model for the /api/initialize-z-and-Z endpoint.
+    """
+
+    l: int
+
+
+class ShareToReconstruct(BaseModel):
+    """
+    Data model for the /api/reconstruct-secret and /api/return-calculated-share endpoints.
+    """
+
+    share_to_reconstruct: str

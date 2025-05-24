@@ -3,19 +3,15 @@ import asyncio
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.config import STATUS, TRUSTED_IPS, state
+from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import RData, ResultResponse, SharedQData, SharedRData
 from api.utils.utils import (
     Shamir,
-    binary,
-    binary_exponentiation,
-    get_temporary_zZ,
-    inverse_matrix_mod,
-    multiply_matrix,
     send_post_request,
     validate_initialized,
-    validate_initialized_array,
+    validate_initialized_shares,
+    validate_initialized_shares_array,
 )
 
 router = APIRouter(
@@ -67,13 +63,8 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
             detail="You do not have permission to access this resource.",
         )
 
-    if state.get("status") != STATUS.INITIALIZED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Server must be in initialized state.",
-        )
-
-    validate_initialized(["t", "n", "p", "id", "parties", "shared_q"])
+    validate_initialized(["t", "n", "p", "id", "parties"])
+    validate_initialized_shares(["shared_q"])
 
     q = Shamir(2 * state.get("t", 0), state.get("n", 0), 0, state.get("p", 0))
 
@@ -81,7 +72,7 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
         tasks = []
         for i in range(state.get("n", 0)):
             if i == state.get("id", 0) - 1:
-                state["shared_q"][i] = q[i][1]
+                state["shares"]["shared_q"][i] = q[i][1]
                 continue
 
             url = f"{state['parties'][i]}/api/receive-q-from-parties"
@@ -90,7 +81,6 @@ async def redistribute_q(current_user: dict = Depends(get_current_user)):
 
         await asyncio.gather(*tasks)
 
-        state.update({"status": STATUS.Q_CALC_SHARED})
         return {"result": "q calculated and shared"}
 
 
@@ -164,20 +154,23 @@ async def set_received_q(values: SharedQData, request: Request):
     #         detail="You do not have permission to access this resource.",
     #     ) TODO:
 
-    validate_initialized(["shared_q"])
+    validate_initialized_shares(["shared_q"])
 
-    if values.party_id > len(state.get("shared_q", [])) or values.party_id < 1:
+    if (
+        values.party_id > len(state.get("shares", {}).get("shared_q", []))
+        or values.party_id < 1
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid party id."
         )
 
-    if state.get("shared_q", [])[values.party_id - 1] is not None:
+    if state.get("shares", {}).get("shared_q", [])[values.party_id - 1] is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="q is already set from this party.",
         )
 
-    state["shared_q"][values.party_id - 1] = int(values.shared_q, 16)
+    state["shares"]["shared_q"][values.party_id - 1] = int(values.shared_q, 16)
 
     return {"result": "q received"}
 
@@ -233,13 +226,8 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
     Calculates and distributes the 'r' shares to all participating parties, based on previously distributed 'q' shares.
 
     Request Body:
-    - `take_value_from_temporary_zZ`: Flag indicating whether to take the second value from temporary_zZ
-    - `zZ_first_multiplication_factor`: The first multiplication factor from zZ
-    - `zZ_second_multiplication_factor`: The second multiplication factor from zZ
-    - `calculate_final_comparison_result`: Flag indicating whether to calculate the final comparison result
-    - `opened_a`: Opened value of a (hexadecimal string)
-    - `l`: length
-    - `k`: kappa
+    - `first_share_name`: name of the first share
+    - `second_share_name`: name of the second share
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -247,101 +235,27 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
             detail="You do not have permission to access this resource.",
         )
 
-    # Validate server state
-    if state.get("status") != STATUS.Q_CALC_SHARED:
+    # Validate required state variables
+    validate_initialized(["n", "p", "t", "id", "parties", "A"])
+    validate_initialized_shares(["shared_r"])
+    validate_initialized_shares_array(["shared_q"])
+
+    first_share = state.get("shares", {}).get(values.first_share_name, None)
+    second_share = state.get("shares", {}).get(values.second_share_name, None)
+
+    if first_share is None or second_share is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Server must be in q calculated and shared state.",
+            detail="Invalid share names provided.",
         )
 
-    # Validate required state variables
-    validate_initialized(["client_shares", "n", "p", "t", "id", "shared_r", "parties"])
-    validate_initialized_array(["shared_q"])
+    qs = [x for x in state.get("shares", {}).get("shared_q", []) if x is not None]
 
-    # Check for optional parameters
-    if values.calculate_final_comparison_result:
-        if values.opened_a is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="opened_a must be provided when calculate_final_comparison_result is True.",
-            )
-        if values.l is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="l must be provided when calculate_final_comparison_result is True.",
-            )
-        if values.k is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="k must be provided when calculate_final_comparison_result is True.",
-            )
-    else:
-        if values.zZ_first_multiplication_factor is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="zZ_first_multiplication_factor must be provided when calculate_final_comparison_result is False.",
-            )
-        if values.zZ_second_multiplication_factor is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="zZ_second_multiplication_factor must be provided when calculate_final_comparison_result is False.",
-            )
+    multiplied_shares = ((first_share * second_share) + sum(qs)) % state.get("p", 0)
 
-    # Extract multiplication factors based on the condition
-    first_multiplication_factor = 0
-    second_multiplication_factor = 0
-
-    if not values.calculate_final_comparison_result:
-        first_multiplication_factor = state.get("zZ", [])[
-            values.zZ_first_multiplication_factor[0]
-        ][values.zZ_first_multiplication_factor[1]]
-
-        if values.take_value_from_temporary_zZ:
-            second_multiplication_factor = get_temporary_zZ(
-                values.zZ_second_multiplication_factor[0]
-            )
-        else:
-            second_multiplication_factor = state.get("zZ", [])[
-                values.zZ_second_multiplication_factor[0]
-            ][values.zZ_second_multiplication_factor[1]]
-
-    # Generate matrix B
-    B = [list(range(1, state.get("n", 0) + 1)) for _ in range(state.get("n", 0))]
-    for j in range(state.get("n", 0)):
-        for k in range(state.get("n", 0)):
-            B[j][k] = binary_exponentiation(B[j][k], j, state.get("p"))
-
-    # Compute inverse of B
-    B_inv = inverse_matrix_mod(B, state.get("p"))
-
-    # Generate matrix P
-    P = [[0] * state.get("n", 0) for _ in range(state.get("n", 0))]
-    for i in range(state.get("t", 0)):
-        P[i][i] = 1
-
-    # Compute matrix A
-    A = multiply_matrix(multiply_matrix(B_inv, P, state.get("p")), B, state.get("p"))
-
-    # Compute multiplied shares
-    multiplied_shares = 0
-    if values.calculate_final_comparison_result:
-        a_bin = binary(int(values.opened_a, 16))
-
-        while len(a_bin) < values.l + values.k + 2:
-            a_bin.append(0)
-
-        multiplied_shares = (
-            a_bin[values.l] * state.get("zZ", [])[0][1] + sum(state.get("shared_q", []))
-        ) % state.get("p")
-    else:
-        multiplied_shares = (
-            first_multiplication_factor * second_multiplication_factor
-            + sum(state.get("shared_q", []))
-        ) % state.get("p", 0)
-
-    # Compute r values
     r = [
-        (multiplied_shares * A[state.get("id", 0) - 1][i]) % state.get("p")
+        (multiplied_shares * state.get("A", 0)[state.get("id", 0) - 1][i])
+        % state.get("p")
         for i in range(state.get("n", 0))
     ]
 
@@ -350,17 +264,15 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
         tasks = []
         for i in range(state.get("n", 0)):
             if i == state.get("id", 0) - 1:
-                state["shared_r"][i] = r[i]
+                state["shares"]["shared_r"][i] = r[i]
                 continue
 
             url = f"{state['parties'][i]}/api/receive-r-from-parties"
             json_data = {"party_id": state.get("id"), "shared_r": hex(r[i])}
             tasks.append(send_post_request(session, url, json_data))
 
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=False)
 
-        # Update state and return response
-        state.update({"status": STATUS.R_CALC_SHARED})
         return {"result": "r calculated and shared"}
 
 
@@ -434,19 +346,20 @@ async def set_received_r(values: SharedRData, request: Request):
     #         detail="You do not have permission to access this resource.",
     #     ) TODO:
 
-    validate_initialized(["shared_r"])
-
-    if values.party_id > len(state.get("shared_r", [])) or values.party_id < 1:
+    if (
+        values.party_id > len(state.get("shares", {}).get("shared_r", []))
+        or values.party_id < 1
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid party id."
         )
 
-    if state.get("shared_r", [])[values.party_id - 1] is not None:
+    if state.get("shares", {}).get("shared_r", [])[values.party_id - 1] is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="r is already set from this party.",
         )
 
-    state["shared_r"][values.party_id - 1] = int(values.shared_r, 16)
+    state["shares"]["shared_r"][values.party_id - 1] = int(values.shared_r, 16)
 
     return {"result": "r received"}

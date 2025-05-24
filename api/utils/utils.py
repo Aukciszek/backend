@@ -19,12 +19,24 @@ def validate_initialized(required_keys):
             raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
 
 
-def validate_initialized_array(required_keys):
+def validate_initialized_shares(required_keys):
+    if state["shares"] is None:
+        raise HTTPException(status_code=400, detail=f"shares is not initialized.")
     for key in required_keys:
-        if state[key] is None:
-            raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
+        if state["shares"][key] is None:
+            raise HTTPException(
+                status_code=400, detail=f"['shares']{key} is not initialized."
+            )
 
-        for i, value in enumerate(state[key]):
+
+def validate_initialized_shares_array(required_keys):
+    for key in required_keys:
+        if state["shares"][key] is None:
+            raise HTTPException(
+                status_code=400, detail=f"['shares']{key} is not initialized."
+            )
+
+        for i, value in enumerate(state["shares"][key]):
             if value is None:
                 raise HTTPException(
                     status_code=400,
@@ -40,7 +52,7 @@ async def send_post_request(session, url, json_data):
                     status_code=response.status,
                     detail=f"Error: Received status code {response.status} for URL {url}",
                 )
-            await response.json()
+            return await response.json()
     except aiohttp.ClientError as e:
         raise HTTPException(
             status_code=400, detail=f"HTTP error occurred for {url}: {e}"
@@ -68,11 +80,6 @@ async def send_get_request(session, url):
         raise HTTPException(
             status_code=400, detail=f"Unexpected error occurred for {url}: {e}"
         )
-
-
-def reset_state(keys_to_reset):
-    for key in keys_to_reset:
-        state[key] = None
 
 
 binary_internal = lambda n: n > 0 and [n & 1] + binary_internal(n >> 1) or []
@@ -257,22 +264,3 @@ def Shamir(t, n, k0, p):
         shares.append((i, f(i, coefficients, p, t)))
 
     return shares
-
-
-def get_temporary_zZ(index: int) -> int:
-    """Safe accessor for temporary_zZ values"""
-    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
-        raise ValueError("Invalid temporary_zZ index")
-    return state.get("temporary_zZ", [])[index]
-
-
-def set_temporary_zZ(index: int, value: int):
-    """Safe mutator for temporary_zZ values"""
-    if index not in [TEMPORARY_Z0, TEMPORARY_Z1]:
-        raise ValueError("Invalid temporary_zZ index")
-    state["temporary_zZ"][index] = value
-
-
-def reset_temporary_zZ():
-    """Reset temporary_zZ to initial state"""
-    state.update({"temporary_zZ": [0, 0]})

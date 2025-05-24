@@ -20,10 +20,6 @@ app = FastAPI(
     description="API for performing secure multi-party computation protocols.",
     openapi_tags=[
         {
-            "name": "Status",
-            "description": "Endpoints for checking the server status.",
-        },
-        {
             "name": "Initialization",
             "description": "Endpoints for setting up the initial parameters of the MPC protocol.",
         },

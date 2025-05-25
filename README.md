@@ -2,10 +2,14 @@
 
 ## How to Start the Backend
 
+It's recommended to have `uv` installed.
+
+Installation guide: https://docs.astral.sh/uv/getting-started/installation/
+
 To start the backend, run the following command:
 
 ```bash
-uv run uvicorn api.__init__:app --port PORT
+SERVER_ID="ID" uv run uvicorn api.__init__:app --port PORT
 ```
 
 You need to run this command in five different terminals, each with a different port. For example:

@@ -33,6 +33,12 @@ router = APIRouter(
                 }
             },
         },
+        400: {
+            "description": "Invalid request data.",
+            "content": {
+                "application/json": {"example": {"detail": "Password should be at least 8 characters long."}}
+            },
+        },
         409: {
             "description": "Email already registered.",
             "content": {

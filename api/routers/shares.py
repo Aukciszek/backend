@@ -54,7 +54,6 @@ async def set_client_shares(
     Sets the client's share using the hexadecimal share string from the request.
 
     Request Body:
-    - `client_id`: The ID of the client
     - `share`: The share value (hexadecimal string)
     """
     if current_user.get("isAdmin") == True:

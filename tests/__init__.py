@@ -892,7 +892,7 @@ async def main():
     l = 3
     k = 1
     first_bid = 24
-    second_bid = 23
+    second_bid = 28
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 

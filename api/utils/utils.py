@@ -9,54 +9,70 @@ from api.config import state
 
 def validate_not_initialized(required_keys):
     for key in required_keys:
+        if key not in state:
+            raise HTTPException(
+                status_code=400, detail=f"state does not contain {key}."
+            )
+
         if state[key] is not None:
-            raise HTTPException(status_code=400, detail=f"{key} is initialized.")
+            raise HTTPException(
+                status_code=400, detail=f"state['{key}'] is already initialized."
+            )
 
 
 def validate_initialized(required_keys):
     for key in required_keys:
+        if key not in state:
+            raise HTTPException(
+                status_code=400, detail=f"state does not contain {key}."
+            )
+
         if state[key] is None:
-            raise HTTPException(status_code=400, detail=f"{key} is not initialized.")
+            raise HTTPException(
+                status_code=400, detail=f"state['{key}'] is not initialized."
+            )
 
 
 def validate_initialized_shares(required_keys):
-    if state["shares"] is None:
-        raise HTTPException(status_code=400, detail="shares is not initialized.")
+    validate_initialized(["shares"])
+
     for key in required_keys:
         if key not in state["shares"]:
             raise HTTPException(
-                status_code=400, detail=f"['shares'] does not contain {key}."
+                status_code=400, detail=f"state['shares'] does not contain {key}."
             )
 
         if state["shares"][key] is None:
             raise HTTPException(
-                status_code=400, detail=f"['shares']{key} is not initialized."
+                status_code=400, detail=f"state['shares']['{key}'] is not initialized."
             )
 
 
 def validate_initialized_shares_array(required_keys):
+    validate_initialized(["shares"])
+
     for key in required_keys:
         if key not in state["shares"]:
             raise HTTPException(
-                status_code=400, detail=f"['shares'] does not contain {key}."
+                status_code=400, detail=f"state['shares'] does not contain {key}."
             )
 
         if state["shares"][key] is None:
             raise HTTPException(
-                status_code=400, detail=f"['shares']{key} is not initialized."
+                status_code=400, detail=f"state['shares']['{key}'] is not initialized."
             )
 
         if not isinstance(state["shares"][key], list):
             raise HTTPException(
                 status_code=400,
-                detail=f"The element at ['shares']{key} is not a list.",
+                detail=f"The element at state['shares']['{key}'] is not a list.",
             )
 
         for i, value in enumerate(state["shares"][key]):
             if value is None:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"The element at '['shares']{key}[{i}]' is not initialized.",
+                    detail=f"The element at state['shares']['{key}'][{i}] is not initialized.",
                 )
 
 

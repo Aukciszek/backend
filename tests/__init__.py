@@ -853,7 +853,7 @@ async def main():
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
-                "email": "userAutomateTesting",
+                "email": "userAutomateTesting@company.com",
                 "password": "userAutomateTesting",
             },
         )
@@ -868,7 +868,7 @@ async def main():
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
-                "email": "userAutomateTesting_2",
+                "email": "userAutomateTesting_2@company.com",
                 "password": "userAutomateTesting_2",
             },
         )
@@ -883,7 +883,7 @@ async def main():
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
-                "email": "adminAutomateTesting",
+                "email": "adminAutomateTesting@company.com",
                 "password": "adminAutomateTesting",
             },
         )
@@ -904,7 +904,7 @@ async def main():
     l = 3
     k = 1
     first_bid = 23
-    second_bid = 22
+    second_bid = 23
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 
@@ -967,6 +967,7 @@ async def main():
         print("Shares set for all parties")
 
         # Get bidders ids
+        bidders = []
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
@@ -998,7 +999,7 @@ async def main():
         await asyncio.gather(*tasks)
         print("A calculated for all parties")
 
-        while True:
+        for _ in range(3):
             for i in range(l + k + 1):
                 await share_random_bit(session, admin_access_tokens, parties, p, i)
 
@@ -1024,8 +1025,8 @@ async def main():
                         session,
                         f"{party}/api/calculate-a-comparison",
                         json_data={
-                            "first_client_id": 23,
-                            "second_client_id": 25,
+                            "first_client_id": bidders[0],
+                            "second_client_id": bidders[1],
                             "l": l,
                             "k": k,
                         },
@@ -1061,6 +1062,7 @@ async def main():
             await comparison(session, admin_access_tokens, parties, opened_a, l, k)
 
             # Reconstruct final result
+            final_result = None
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
@@ -1079,6 +1081,11 @@ async def main():
                 print(
                     f"Final result reconstructed for party {i + 1} with value {final_result}"
                 )
+
+            if first_bid >= second_bid:
+                assert final_result == 1
+            else:
+                assert final_result == 0
 
             # Reset comparison for all parties
             tasks = []

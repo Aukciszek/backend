@@ -53,6 +53,6 @@ async def get_bidders(current_user: dict = Depends(get_current_user)):
     validate_initialized(["n"])
     validate_initialized_shares(["client_shares"])
 
-    bidders = [item[0] for item in state.get("shares", {}).get("client_shares", [])]
+    bidders = sorted([item[0] for item in state.get("shares", {}).get("client_shares", [])])
 
     return {"bidders": bidders}

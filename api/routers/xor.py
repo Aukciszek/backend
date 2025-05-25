@@ -177,10 +177,7 @@ async def set_random_number_bit_share_to_temporary_random_bit_share(
     while len(state.get("random_number_bit_shares", [])) < bit_index + 1:
         state["random_number_bit_shares"].append(None)
 
-    state["random_number_bit_shares"][bit_index] = (
-        state.get("id", None),
-        state.get("shares", {}).get("temporary_random_bit", 0),
-    )
+    state["random_number_bit_shares"][bit_index] = state.get("shares", {}).get("temporary_random_bit", 0)
 
     return {"result": f"Random number bit share at index {bit_index} set successfully."}
 
@@ -231,23 +228,19 @@ async def calculate_share_of_random_number(
     def multiply_bit_shares_by_powers_of_2(shares):
         multiplied_shares = []
         for i in range(len(shares)):
-            multiplied_shares.append((shares[i][0], 2**i * shares[i][1]))
+            multiplied_shares.append(2**i * shares[i])
         return multiplied_shares
 
     def add_multiplied_shares(multiplied_shares):
-        party_id = multiplied_shares[0][0]
-        value_of_share_r = multiplied_shares[0][1]
+        value_of_share_r = multiplied_shares[0]
         for i in range(1, len(multiplied_shares)):
-            value_of_share_r += multiplied_shares[i][1]
-        return (
-            party_id,
-            value_of_share_r % state.get("p", 0),
-        )
+            value_of_share_r += multiplied_shares[i]
+        return value_of_share_r % state.get("p", 0)
 
     pom = multiply_bit_shares_by_powers_of_2(state.get("random_number_bit_shares", []))
     share_of_random_number = add_multiplied_shares(pom)
 
-    state["random_number_share"] = share_of_random_number[1]
+    state["random_number_share"] = share_of_random_number
 
     return {
         "result": "Share of random number calculated successfully.",

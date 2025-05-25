@@ -258,7 +258,7 @@ async def calculate_additive_share_of_z_table_arguments(
         )
 
     first_share = state.get("comparison_a_bits", [])[index]
-    second_share = state.get("random_number_bit_shares", [])[index][1]
+    second_share = state.get("random_number_bit_shares", [])[index]
 
     state["additive_share"] = (first_share + second_share) % state.get("p", 0)
 
@@ -331,7 +331,7 @@ async def calculate_r_of_z_table(
         )
 
     first_share = state.get("comparison_a_bits", [])[index]
-    second_share = state.get("random_number_bit_shares", [])[index][1]
+    second_share = state.get("random_number_bit_shares", [])[index]
 
     if first_share is None or second_share is None:
         raise HTTPException(
@@ -639,8 +639,6 @@ async def prepare_shares_for_res_xors(
         )
 
     state["shares"]["a_l"] = state.get("comparison_a_bits", [])[comparison_a_bit_index]
-    state["shares"]["r_l"] = state.get("random_number_bit_shares", [])[
-        random_number_bit_share_index
-    ][1]
+    state["shares"]["r_l"] = state.get("random_number_bit_shares", [])[random_number_bit_share_index]
 
     return {"result": "Shares for res xors prepared successfully."}

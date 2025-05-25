@@ -24,8 +24,8 @@ class SetShareData(BaseModel):
 class AComparisonData(BaseModel):
     """Data model for comparing two clients."""
 
-    first_client_id: int
-    second_client_id: int
+    first_client_id: str
+    second_client_id: str
     l: int
     k: int
 
@@ -94,7 +94,7 @@ class BiddersResponse(BaseModel):
     Response model for the /api/get-bidders endpoint.
     """
 
-    bidders: list[int]
+    bidders: list[str]
 
 
 class ResultResponse(BaseModel):
@@ -119,7 +119,7 @@ class InitialValuesResponse(BaseModel):
 class TokenData(BaseModel):
     """Data model for token payload."""
 
-    uid: int | None = None
+    uid: str | None = None
     email: str | None = None
     isAdmin: bool | None = None
 

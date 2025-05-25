@@ -50,6 +50,11 @@ async def register(user_req_data: RegisterData):
     - `password`: The password of the user.
     - `is_admin`: Boolean indicating if the user is an administrator.
     """
+    if len(user_req_data.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password should be at least 8 characters long."
+        )
+
     user = (
         supabase.table("users").select("*").eq("email", user_req_data.email).execute()
     )

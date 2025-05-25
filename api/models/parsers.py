@@ -151,12 +151,6 @@ class InitializezAndZZData(BaseModel):
     l: int
 
 
-class ShareToReconstruct(BaseModel):
-    """Data model for share reconstruction input."""
-
-    share_to_reconstruct: str
-
-
 class ReconstructSecret(BaseModel):
     """Response model for the /api/reconstruct-secret endpoint."""
 

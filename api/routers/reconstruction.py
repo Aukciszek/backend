@@ -6,11 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import (
-    ReconstructSecret,
-    ReturnCalculatedShare,
-    ShareToReconstruct,
-)
+from api.models.parsers import ReconstructSecret, ReturnCalculatedShare
 from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
@@ -26,14 +22,14 @@ router = APIRouter(
 
 
 @router.get(
-    "/return-calculated-share",
+    "/return-share-to-reconstruct/{share_to_reconstruct}",
     status_code=status.HTTP_200_OK,
-    summary="Return the calculated share",
-    response_description="Returns the party identifier along with the calculated share (in hexadecimal).",
+    summary="Return the share to reconstruct",
+    response_description="Returns the party identifier along with the share to reconstruct (in hexadecimal).",
     response_model=ReturnCalculatedShare,
     responses={
         200: {
-            "description": "Calculated share returned successfully.",
+            "description": "Share to reconstruct returned successfully.",
             "content": {
                 "application/json": {
                     "example": {"id": 1, "share_to_reconstruct": "0x123abc456def"}
@@ -60,9 +56,12 @@ router = APIRouter(
         },
     },
 )
-async def get_calculated_share(values: ShareToReconstruct, request: Request):
+async def get_share_to_reconstruct(share_to_reconstruct: str, request: Request):
     """
-    Returns the calculated share associated with the requested share key.
+    Returns the share for reconstruction associated with the requested share key.
+
+    Path Parameters:
+    - share_to_reconstruct: The share key to retrieve the associated share.
     """
     if not isinstance(TRUSTED_IPS, (list, tuple)):
         raise HTTPException(
@@ -77,19 +76,19 @@ async def get_calculated_share(values: ShareToReconstruct, request: Request):
         )
 
     validate_initialized(["id"])
-    validate_initialized_shares([values.share_to_reconstruct])
+    validate_initialized_shares([share_to_reconstruct])
 
     return {
         "id": state.get("id", None),
         "share_to_reconstruct": hex(
-            state.get("shares", {}).get(values.share_to_reconstruct, 0)
+            state.get("shares", {}).get(share_to_reconstruct, 0)
         ),
     }
 
 
 @router.get(
-    "/reconstruct-secret",
-    status_code=status.HTTP_201_CREATED,
+    "/reconstruct-secret/{share_to_reconstruct}",
+    status_code=status.HTTP_200_OK,
     summary="Reconstruct the secret",
     response_description="Reconstructed secret returned as hexadecimal string.",
     response_model=ReconstructSecret,
@@ -117,10 +116,13 @@ async def get_calculated_share(values: ShareToReconstruct, request: Request):
     },
 )
 async def return_secret(
-    values: ShareToReconstruct, current_user: dict = Depends(get_current_user)
+    share_to_reconstruct: str, current_user: dict = Depends(get_current_user)
 ):
     """
     Reconstructs the secret from the available calculated shares.
+
+    Path Parameters:
+    - share_to_reconstruct: The share key to reconstruct the secret from.
     """
     if current_user.get("isAdmin") == False:
         raise HTTPException(
@@ -129,7 +131,7 @@ async def return_secret(
         )
 
     validate_initialized(["parties", "id", "t", "p"])
-    validate_initialized_shares([values.share_to_reconstruct])
+    validate_initialized_shares([share_to_reconstruct])
 
     parties = [
         party
@@ -142,11 +144,8 @@ async def return_secret(
         calculated_shares = []
         tasks = []
         for party in selected_parties:
-            url = f"{party}/api/return-calculated-share"
-            json_data = {
-                "share_to_reconstruct": values.share_to_reconstruct,
-            }
-            tasks.append(send_get_request(session, url, json_data))
+            url = f"{party}/api/return-share-to-reconstruct/{share_to_reconstruct}"
+            tasks.append(send_get_request(session, url))
 
         results = await asyncio.gather(*tasks)
 
@@ -158,7 +157,7 @@ async def return_secret(
         calculated_shares.append(
             (
                 state.get("id", None),
-                state.get("shares", {}).get(values.share_to_reconstruct, 0),
+                state.get("shares", {}).get(share_to_reconstruct, 0),
             )
         )
 

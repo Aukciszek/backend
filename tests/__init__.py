@@ -1,21 +1,14 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import asyncio
 import os
 
 import aiohttp
 
-
-def modular_multiplicative_inverse(b: int, n: int) -> int:
-    A = n
-    B = b
-    U = 0
-    V = 1
-    while B != 0:
-        q = A // B
-        A, B = B, A - q * B
-        U, V = V, U - q * V
-    if U < 0:
-        return U + n
-    return U
+from api.utils.utils import Shamir, modular_multiplicative_inverse
 
 
 def smallest_square_root_modulo(number, modulus):
@@ -42,55 +35,25 @@ def secure_randint(start, end):
             return start + random_int
 
 
-def f(x, coefficients, p, t):
-    return sum([coefficients[i] * x**i for i in range(t)]) % p
-
-
-def Shamir(t, n, k0, p):
-    coefficients = [secure_randint(0, p - 1) for _ in range(t)]
-    coefficients[0] = k0
-
-    if coefficients[-1] == 0:
-        coefficients[-1] = secure_randint(1, p - 1)
-
-    shares = []
-
-    for i in range(1, n + 1):
-        shares.append((i, f(i, coefficients, p, t)))
-
-    return shares
-
-
-async def send_post(session, url, json_data=None, headers=None):
+async def send_post_request(session, url, json_data=None, headers=None):
     """Send a POST request asynchronously."""
     try:
         async with session.post(url, json=json_data, headers=headers) as response:
             message = await response.json()
 
-            if response.status != 200 and response.status != 201:
+            if response.status != 201:
                 print(f"Failed POST request to {url}: {message}")
 
-            return await response.json()
+            return message
+    except aiohttp.ClientError as e:
+        print(f"HTTP error occurred for {url}: {e}")
+        return {}
     except Exception as e:
-        print(f"Error during POST request to {url}: {e}")
-
-
-async def send_get(session, url, headers=None, json_data=None):
-    """Send a GET request asynchronously."""
-    try:
-        async with session.get(url, headers=headers, json=json_data) as response:
-            message = await response.json()
-
-            if response.status != 200 and response.status != 201:
-                print(f"Failed GET request to {url}: {message}")
-
-            return await response.json()
-    except Exception as e:
-        print(f"Error during GET request to {url}: {e}")
+        print(f"Unexpected error occurred for {url}: {e}")
         return {}
 
 
-async def send_put(session, url, json_data=None, headers=None):
+async def send_put_request(session, url, json_data=None, headers=None):
     """Send a PUT request asynchronously."""
     try:
         async with session.put(url, json=json_data, headers=headers) as response:
@@ -100,8 +63,30 @@ async def send_put(session, url, json_data=None, headers=None):
                 print(f"Failed PUT request to {url}: {message}")
 
             return await response.json()
+    except aiohttp.ClientError as e:
+        print(f"HTTP error occurred for {url}: {e}")
+        return {}
     except Exception as e:
-        print(f"Error during PUT request to {url}: {e}")
+        print(f"Unexpected error occurred for {url}: {e}")
+        return {}
+
+
+async def send_get_request(session, url, params=None, headers=None):
+    """Send a GET request asynchronously."""
+    try:
+        async with session.get(url, params=params, headers=headers) as response:
+            message = await response.json()
+
+            if response.status != 200:
+                print(f"Failed GET request to {url}: {message}")
+
+            return message
+    except aiohttp.ClientError as e:
+        print(f"HTTP error occurred for {url}: {e}")
+        return {}
+    except Exception as e:
+        print(f"Unexpected error occurred for {url}: {e}")
+        return {}
 
 
 async def add_shares(
@@ -116,7 +101,7 @@ async def add_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-additive-share",
                 json_data={
@@ -136,7 +121,7 @@ async def add_shares(
     for i, party in enumerate(parties):
         # Set the result share to the additive share
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/set-additive-share/{result_share_name}",
                 headers={
@@ -160,7 +145,7 @@ async def multiply_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-q",
                 headers={
@@ -175,7 +160,7 @@ async def multiply_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-r",
                 json_data={
@@ -194,7 +179,7 @@ async def multiply_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-multiplicative-share",
                 headers={
@@ -209,7 +194,7 @@ async def multiply_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/set-multiplicative-share/{result_share_name}",
                 headers={
@@ -236,7 +221,7 @@ async def xor_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-additive-share",
                 json_data={
@@ -255,7 +240,7 @@ async def xor_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-q",
                 headers={
@@ -270,7 +255,7 @@ async def xor_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-r",
                 json_data={
@@ -289,7 +274,7 @@ async def xor_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-multiplicative-share",
                 headers={
@@ -304,7 +289,7 @@ async def xor_shares(
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-xor-share",
                 headers={
@@ -320,7 +305,7 @@ async def xor_shares(
     for i, party in enumerate(parties):
         # Set the result share to the XOR share
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/set-xor-share/{result_share_name}",
                 headers={
@@ -337,7 +322,7 @@ async def share_random_u(session, admin_access_tokens, parties):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-u",
                 headers={
@@ -352,7 +337,7 @@ async def share_random_u(session, admin_access_tokens, parties):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-shared-u",
                 headers={
@@ -382,7 +367,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -396,10 +381,9 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_get(
+                send_get_request(
                     session,
-                    f"{party}/api/reconstruct-secret",
-                    json_data={"share_to_reconstruct": "v"},
+                    f"{party}/api/reconstruct-secret/v",
                     headers={
                         "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
                     },
@@ -418,7 +402,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/set-shares",
                 json_data={
@@ -446,7 +430,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/reset-calculation",
                 headers={
@@ -461,7 +445,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/set-shares",
                 json_data={
@@ -491,7 +475,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/set-shares",
                 json_data={
@@ -519,7 +503,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/reset-calculation",
                 headers={
@@ -534,7 +518,7 @@ async def share_random_bit(session, admin_access_tokens, parties, p, bit_index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/set-temporary-random-bit-share/{bit_index}",
                 headers={
@@ -551,7 +535,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-additive-share-of-z-table/{index}",
                 headers={
@@ -566,7 +550,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/redistribute-q",
                 headers={
@@ -581,7 +565,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-r-of-z-table/{index}",
                 headers={
@@ -596,7 +580,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-multiplicative-share",
                 headers={
@@ -613,7 +597,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/calculate-xor-share",
                 headers={
@@ -628,7 +612,7 @@ async def calculate_z_table_XOR(session, admin_access_tokens, parties, index):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/set-z-table-to-xor-share/{index}",
                 headers={
@@ -648,7 +632,7 @@ async def calculate_z_tables(session, admin_access_tokens, parties, l):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -665,7 +649,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/prepare-z-tables",
                 json_data={
@@ -687,7 +671,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/initialize-z-and-Z",
                 json_data={"l": l},
@@ -704,7 +688,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_put(
+                send_put_request(
                     session,
                     f"{party}/api/prepare-for-next-romb/{i}",
                     headers={
@@ -729,7 +713,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -747,7 +731,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -765,7 +749,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -783,7 +767,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
         tasks = []
         for j, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/reset-calculation",
                     headers={
@@ -798,7 +782,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_put(
+            send_put_request(
                 session,
                 f"{party}/api/prepare-shares-for-res-xors/{l}/{l}",
                 headers={
@@ -816,7 +800,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/reset-calculation",
                 headers={
@@ -834,7 +818,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
     tasks = []
     for i, party in enumerate(parties):
         tasks.append(
-            send_post(
+            send_post_request(
                 session,
                 f"{party}/api/reset-calculation",
                 headers={
@@ -849,7 +833,7 @@ async def comparison(session, admin_access_tokens, parties, opened_a, l, k):
 async def main():
     async with aiohttp.ClientSession() as session:
         # Login to user account
-        user_access_tokens_1 = await send_post(
+        user_access_tokens_1 = await send_post_request(
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
@@ -864,7 +848,7 @@ async def main():
         print("User access tokens: ", user_access_tokens_1)
 
         # Login to user account
-        user_access_tokens_2 = await send_post(
+        user_access_tokens_2 = await send_post_request(
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
@@ -879,7 +863,7 @@ async def main():
         print("User access tokens: ", user_access_tokens_2)
 
         # Login to admin account
-        admin_access_tokens = await send_post(
+        admin_access_tokens = await send_post_request(
             session,
             "http://localhost:5001/api/auth/login",
             json_data={
@@ -903,7 +887,7 @@ async def main():
     n = len(parties)
     l = 3
     k = 1
-    first_bid = 21
+    first_bid = 24
     second_bid = 23
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
@@ -917,7 +901,7 @@ async def main():
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/factory-reset",
                     headers={
@@ -932,7 +916,7 @@ async def main():
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_post(
+                send_post_request(
                     session,
                     f"{party}/api/initial-values",
                     json_data={"id": i + 1, "p": p},
@@ -954,7 +938,7 @@ async def main():
                 print(f"Setting share for party {i + 1} with share {shares[i][1]}")
 
                 tasks.append(
-                    send_post(
+                    send_post_request(
                         session,
                         f"{party}/api/set-client-shares",
                         json_data={"share": hex(shares[i][1])},
@@ -971,7 +955,7 @@ async def main():
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_get(
+                send_get_request(
                     session,
                     f"{party}/api/get-bidders",
                     headers={
@@ -988,7 +972,7 @@ async def main():
         tasks = []
         for i, party in enumerate(parties):
             tasks.append(
-                send_put(
+                send_put_request(
                     session,
                     f"{party}/api/calculate-A",
                     headers={
@@ -1006,7 +990,7 @@ async def main():
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
-                    send_put(
+                    send_put_request(
                         session,
                         f"{party}/api/calculate-share-of-random-number",
                         headers={
@@ -1021,7 +1005,7 @@ async def main():
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
-                    send_put(
+                    send_put_request(
                         session,
                         f"{party}/api/calculate-a-comparison",
                         json_data={
@@ -1043,10 +1027,9 @@ async def main():
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
-                    send_get(
+                    send_get_request(
                         session,
-                        f"{party}/api/reconstruct-secret",
-                        json_data={"share_to_reconstruct": "comparison_a"},
+                        f"{party}/api/reconstruct-secret/comparison_a",
                         headers={
                             "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
                         },
@@ -1066,10 +1049,9 @@ async def main():
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
-                    send_get(
+                    send_get_request(
                         session,
-                        f"{party}/api/reconstruct-secret",
-                        json_data={"share_to_reconstruct": "res"},
+                        f"{party}/api/reconstruct-secret/res",
                         headers={
                             "Authorization": f"Bearer {admin_access_tokens['access_tokens'][i]['access_token']}"
                         },
@@ -1091,7 +1073,7 @@ async def main():
             tasks = []
             for i, party in enumerate(parties):
                 tasks.append(
-                    send_post(
+                    send_post_request(
                         session,
                         f"{party}/api/reset-comparison",
                         headers={

@@ -23,6 +23,11 @@ def validate_initialized_shares(required_keys):
     if state["shares"] is None:
         raise HTTPException(status_code=400, detail="shares is not initialized.")
     for key in required_keys:
+        if key not in state["shares"]:
+            raise HTTPException(
+                status_code=400, detail=f"['shares'] does not contain {key}."
+            )
+
         if state["shares"][key] is None:
             raise HTTPException(
                 status_code=400, detail=f"['shares']{key} is not initialized."
@@ -31,9 +36,20 @@ def validate_initialized_shares(required_keys):
 
 def validate_initialized_shares_array(required_keys):
     for key in required_keys:
+        if key not in state["shares"]:
+            raise HTTPException(
+                status_code=400, detail=f"['shares'] does not contain {key}."
+            )
+
         if state["shares"][key] is None:
             raise HTTPException(
                 status_code=400, detail=f"['shares']{key} is not initialized."
+            )
+
+        if not isinstance(state["shares"][key], list):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The element at ['shares']{key} is not a list.",
             )
 
         for i, value in enumerate(state["shares"][key]):
@@ -44,15 +60,19 @@ def validate_initialized_shares_array(required_keys):
                 )
 
 
-async def send_post_request(session, url, json_data):
+async def send_post_request(session, url, json_data=None, headers=None):
+    """Send a POST request asynchronously."""
     try:
-        async with session.post(url, json=json_data) as response:
+        async with session.post(url, json=json_data, headers=headers) as response:
+            message = await response.json()
+
             if response.status != 201:
                 raise HTTPException(
                     status_code=response.status,
-                    detail=f"Error: Received status code {response.status} for URL {url}",
+                    detail=f"Failed POST request to {url}: {message}",
                 )
-            return await response.json()
+
+            return message
     except aiohttp.ClientError as e:
         raise HTTPException(
             status_code=400, detail=f"HTTP error occurred for {url}: {e}"
@@ -63,15 +83,19 @@ async def send_post_request(session, url, json_data):
         )
 
 
-async def send_get_request(session, url, json_data=None):
+async def send_get_request(session, url, params=None, headers=None):
+    """Send a GET request asynchronously."""
     try:
-        async with session.get(url, json=json_data) as response:
+        async with session.get(url, params=params, headers=headers) as response:
+            message = await response.json()
+
             if response.status != 200:
                 raise HTTPException(
                     status_code=response.status,
-                    detail=f"Error: Received status code {response.status} for URL {url}",
+                    detail=f"Failed GET request to {url}: {message}",
                 )
-            return await response.json()
+
+            return message
     except aiohttp.ClientError as e:
         raise HTTPException(
             status_code=400, detail=f"HTTP error occurred for {url}: {e}"

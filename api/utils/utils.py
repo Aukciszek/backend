@@ -122,7 +122,8 @@ async def send_get_request(session, url, params=None, headers=None):
         )
 
 
-binary_internal = lambda n: n > 0 and [n & 1] + binary_internal(n >> 1) or []
+def binary_internal(n):
+    return n > 0 and [n & 1] + binary_internal(n >> 1) or []
 
 
 def binary(n):

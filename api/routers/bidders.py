@@ -1,8 +1,10 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import BiddersResponse
+from api.models.parsers import BiddersResponse, TokenData
 from api.utils.utils import validate_initialized, validate_initialized_shares
 
 router = APIRouter(
@@ -40,11 +42,11 @@ router = APIRouter(
         },
     },
 )
-async def get_bidders(current_user: dict = Depends(get_current_user)):
+async def get_bidders(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Retrieves the list of bidder IDs based on the available client shares.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -53,6 +55,8 @@ async def get_bidders(current_user: dict = Depends(get_current_user)):
     validate_initialized(["n"])
     validate_initialized_shares(["client_shares"])
 
-    bidders = sorted([item[0] for item in state.get("shares", {}).get("client_shares", [])])
+    bidders = sorted(
+        [item[0] for item in state.get("shares", {}).get("client_shares", [])]
+    )
 
     return {"bidders": bidders}

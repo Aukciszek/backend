@@ -1,12 +1,13 @@
 import asyncio
 from random import sample
+from typing import Annotated
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ReconstructSecret, ReturnCalculatedShare
+from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (
     computate_coefficients,
     reconstruct_secret,
@@ -116,7 +117,8 @@ async def get_share_to_reconstruct(share_to_reconstruct: str, request: Request):
     },
 )
 async def return_secret(
-    share_to_reconstruct: str, current_user: dict = Depends(get_current_user)
+    share_to_reconstruct: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Reconstructs the secret from the available calculated shares.
@@ -124,7 +126,7 @@ async def return_secret(
     Path Parameters:
     - share_to_reconstruct: The share key to reconstruct the secret from.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

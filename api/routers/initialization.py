@@ -1,8 +1,15 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import SERVERS, state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import InitialValuesData, InitialValuesResponse, ResultResponse
+from api.models.parsers import (
+    InitialValuesData,
+    InitialValuesResponse,
+    ResultResponse,
+    TokenData,
+)
 from api.utils.utils import (
     binary_exponentiation,
     inverse_matrix_mod,
@@ -62,7 +69,8 @@ router = APIRouter(
     },
 )
 async def set_initial_values(
-    values: InitialValuesData, current_user: dict = Depends(get_current_user)
+    values: InitialValuesData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Sets the initial values for the MPC protocol (party id, prime, and calculated t, n).
@@ -71,7 +79,7 @@ async def set_initial_values(
     - `id`: The ID of this party
     - `p`: The prime number (hexadecimal string)
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -160,7 +168,7 @@ async def set_initial_values(
         },
     },
 )
-async def get_initial_values(_: dict = Depends(get_current_user)):
+async def get_initial_values(_: Annotated[TokenData, Depends(get_current_user)]):
     """
     Returns the currently set initial values.
     """
@@ -212,12 +220,12 @@ async def get_initial_values(_: dict = Depends(get_current_user)):
         },
     },
 )
-async def calculate_A(current_user: dict = Depends(get_current_user)):
+async def calculate_A(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Calculates matrix A using the inverse of a generated matrix B and modular operations.
     """
 
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

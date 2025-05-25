@@ -1,8 +1,10 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ResultResponse
+from api.models.parsers import ResultResponse, TokenData
 from api.utils.utils import validate_initialized, validate_initialized_shares
 
 router = APIRouter(
@@ -44,12 +46,14 @@ router = APIRouter(
         },
     },
 )
-async def calculate_xor_share(current_user: dict = Depends(get_current_user)):
+async def calculate_xor_share(
+    current_user: Annotated[TokenData, Depends(get_current_user)],
+):
     """
     Calculates the XOR share using the formula:
         (additive_share - 2 * multiplicative_share) mod p.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -100,7 +104,7 @@ async def calculate_xor_share(current_user: dict = Depends(get_current_user)):
     },
 )
 async def set_share_from_xor_share(
-    share_name: str, current_user: dict = Depends(get_current_user)
+    share_name: str, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Sets the share named {share_name} using the previously calculated XOR share.
@@ -108,7 +112,7 @@ async def set_share_from_xor_share(
     Path Parameters:
     - `share_name`: The name of the share to set
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -157,7 +161,7 @@ async def set_share_from_xor_share(
     },
 )
 async def set_random_number_bit_share_to_temporary_random_bit_share(
-    bit_index: int, current_user: dict = Depends(get_current_user)
+    bit_index: int, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Sets the temporary random bit share at the provided index using the party ID and a designated share.
@@ -165,7 +169,7 @@ async def set_random_number_bit_share_to_temporary_random_bit_share(
     Path Parameters:
     - `bit_index`: The index at which to set the random bit share
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -177,7 +181,9 @@ async def set_random_number_bit_share_to_temporary_random_bit_share(
     while len(state.get("random_number_bit_shares", [])) < bit_index + 1:
         state["random_number_bit_shares"].append(None)
 
-    state["random_number_bit_shares"][bit_index] = state.get("shares", {}).get("temporary_random_bit", 0)
+    state["random_number_bit_shares"][bit_index] = state.get("shares", {}).get(
+        "temporary_random_bit", 0
+    )
 
     return {"result": f"Random number bit share at index {bit_index} set successfully."}
 
@@ -213,13 +219,13 @@ async def set_random_number_bit_share_to_temporary_random_bit_share(
     },
 )
 async def calculate_share_of_random_number(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Calculates the share of the random number by multiplying bit shares with increasing powers of 2
     and reducing modulo p.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

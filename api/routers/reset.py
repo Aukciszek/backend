@@ -1,8 +1,10 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ResultResponse
+from api.models.parsers import ResultResponse, TokenData
 from api.utils.utils import validate_initialized
 
 router = APIRouter(
@@ -44,11 +46,13 @@ router = APIRouter(
         },
     },
 )
-async def reset_calculation(current_user: dict = Depends(get_current_user)):
+async def reset_calculation(
+    current_user: Annotated[TokenData, Depends(get_current_user)],
+):
     """
     Clears temporary calculation values (multiplicative_share, additive_share, xor_share).
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -108,11 +112,13 @@ async def reset_calculation(current_user: dict = Depends(get_current_user)):
         },
     },
 )
-async def reset_comparison(current_user: dict = Depends(get_current_user)):
+async def reset_comparison(
+    current_user: Annotated[TokenData, Depends(get_current_user)],
+):
     """
     Resets all values related to the comparison protocol.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -169,11 +175,11 @@ async def reset_comparison(current_user: dict = Depends(get_current_user)):
         },
     },
 )
-async def factory_reset(current_user: dict = Depends(get_current_user)):
+async def factory_reset(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Performs a full reset of the server state to its initial, uninitialized configuration.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

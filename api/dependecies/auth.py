@@ -50,14 +50,25 @@ def create_access_tokens(data: dict, expires_delta: timedelta | None = None):
 
 
 def verify_password(plain_password, hashed_password):
+    """
+    Verifies a plain password against a hashed password.
+    Returns True if the passwords match, otherwise False.
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password):
+    """
+    Hashes a password using the configured hashing algorithm.
+    """
     return pwd_context.hash(password)
 
 
 def authenticate_user(email: str, password: str):
+    """
+    Authenticates a user by checking the email and password against the database.
+    Returns user data if authentication is successful, otherwise returns False.
+    """
     user = supabase.table("users").select("*").eq("email", email).execute()
     if not user:
         return False
@@ -66,7 +77,11 @@ def authenticate_user(email: str, password: str):
     return user
 
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> TokenData:
+    """
+    Validates the JWT token and retrieves the current user data.
+    Raises HTTPException if the token is invalid or missing required fields.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication credentials",
@@ -90,7 +105,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         is_admin = payload.get("isAdmin")
         if is_admin is None:
             raise credentials_exception
-        token_data = TokenData(uid=uid, email=email, isAdmin=is_admin)
+        token_data = TokenData(uid=uid, email=email, is_admin=is_admin)
     except jwt.InvalidTokenError:
         raise credentials_exception
-    return {"uid": token_data.uid, "isAdmin": token_data.isAdmin}
+    return token_data

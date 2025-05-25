@@ -104,12 +104,14 @@ class ResultResponse(BaseModel):
 
     result: str
 
+
 class StatusResponse(BaseModel):
     """
     Response model for endpoints that simply return a status message.
     """
 
     status: str
+
 
 class InitialValuesResponse(BaseModel):
     """
@@ -125,9 +127,9 @@ class InitialValuesResponse(BaseModel):
 class TokenData(BaseModel):
     """Data model for token payload."""
 
-    uid: str | None = None
-    email: str | None = None
-    isAdmin: bool | None = None
+    uid: str
+    email: str
+    is_admin: bool
 
 
 class SharedUData(BaseModel):

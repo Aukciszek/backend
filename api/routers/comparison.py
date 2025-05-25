@@ -1,4 +1,5 @@
 import asyncio
+from typing import Annotated
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from api.models.parsers import (
     InitializezAndZZData,
     PrepareZTablesData,
     ResultResponse,
+    TokenData,
 )
 from api.utils.utils import (
     binary,
@@ -75,13 +77,14 @@ router = APIRouter(
     },
 )
 async def calculate_a_comparison(
-    values: AComparisonData, current_user: dict = Depends(get_current_user)
+    values: AComparisonData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Computes the comparison value 'a' using:
        2^(l+k+1) - random_number_share + 2^l + first_client_share - second_client_share.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -165,12 +168,13 @@ async def calculate_a_comparison(
     },
 )
 async def prepare_z_tables(
-    values: PrepareZTablesData, current_user: dict = Depends(get_current_user)
+    values: PrepareZTablesData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Prepares Z tables for the comparison protocol using the opened 'a' value, and security parameters l and k.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -233,12 +237,12 @@ async def prepare_z_tables(
     },
 )
 async def calculate_additive_share_of_z_table_arguments(
-    index: int, current_user: dict = Depends(get_current_user)
+    index: int, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Calculates an additive share from the Z table at the given index using a random bit share.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -305,12 +309,12 @@ async def calculate_additive_share_of_z_table_arguments(
     },
 )
 async def calculate_r_of_z_table(
-    index: int, current_user: dict = Depends(get_current_user)
+    index: int, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Calculates r for the multiplication of the Z table at the specified index and distributes it.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -406,12 +410,12 @@ async def calculate_r_of_z_table(
     },
 )
 async def set_z_table_to_xor_share(
-    index: int, current_user: dict = Depends(get_current_user)
+    index: int, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Sets the Z table entry at the given index equal to the pre-computed XOR share.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -468,12 +472,13 @@ async def set_z_table_to_xor_share(
     },
 )
 async def initialize_z_and_Z(
-    values: InitializezAndZZData, current_user: dict = Depends(get_current_user)
+    values: InitializezAndZZData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Initializes the share values z and Z from the Z tables based on the security parameter l.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -534,12 +539,12 @@ async def initialize_z_and_Z(
     },
 )
 async def prepare_for_next_romb(
-    index: int, current_user: dict = Depends(get_current_user)
+    index: int, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Prepares for the next operation round (romb) by resetting share variables x, X, y, Y.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -611,13 +616,13 @@ async def prepare_for_next_romb(
 async def prepare_shares_for_res_xors(
     comparison_a_bit_index: int,
     random_number_bit_share_index: int,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Prepares the shares required for a res xors operation by selecting the bit from comparison_a and
     the corresponding random number bit share.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -639,6 +644,8 @@ async def prepare_shares_for_res_xors(
         )
 
     state["shares"]["a_l"] = state.get("comparison_a_bits", [])[comparison_a_bit_index]
-    state["shares"]["r_l"] = state.get("random_number_bit_shares", [])[random_number_bit_share_index]
+    state["shares"]["r_l"] = state.get("random_number_bit_shares", [])[
+        random_number_bit_share_index
+    ]
 
     return {"result": "Shares for res xors prepared successfully."}

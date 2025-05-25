@@ -1,8 +1,10 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
 from api.dependecies.auth import get_current_user
-from api.models.parsers import ResultResponse
+from api.models.parsers import ResultResponse, TokenData
 from api.utils.utils import validate_initialized, validate_initialized_shares_array
 
 router = APIRouter(
@@ -45,12 +47,12 @@ router = APIRouter(
     },
 )
 async def calculate_multiplicative_share(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Calculates the multiplicative share as the sum of the shared_r values modulo p.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

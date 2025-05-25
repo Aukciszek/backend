@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.config import state
@@ -7,6 +9,7 @@ from api.models.parsers import (
     ResultResponse,
     SetClientShareData,
     SetShareData,
+    TokenData,
 )
 from api.utils.utils import validate_initialized, validate_initialized_shares
 
@@ -48,7 +51,8 @@ router = APIRouter(
     },
 )
 async def set_client_shares(
-    values: SetClientShareData, current_user: dict = Depends(get_current_user)
+    values: SetClientShareData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Sets the client's share using the hexadecimal share string from the request.
@@ -56,7 +60,7 @@ async def set_client_shares(
     Request Body:
     - `share`: The share value (hexadecimal string)
     """
-    if current_user.get("isAdmin") == True:
+    if current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -69,7 +73,7 @@ async def set_client_shares(
             (
                 x
                 for x, _ in state.get("shares", {}).get("client_shares", [])
-                if x == current_user.get("uid")
+                if x == current_user.uid
             ),
             None,
         )
@@ -80,9 +84,7 @@ async def set_client_shares(
             detail="Shares already set for this client.",
         )
 
-    state["shares"]["client_shares"].append(
-        (current_user.get("uid"), int(values.share, 16))
-    )
+    state["shares"]["client_shares"].append((current_user.uid, int(values.share, 16)))
     return {"result": "Shares set"}
 
 
@@ -124,7 +126,7 @@ async def set_client_shares(
     },
 )
 async def set_share_from_multiplicative_share(
-    share_name: str, current_user: dict = Depends(get_current_user)
+    share_name: str, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Assigns the calculated multiplicative share to a share with name {share_name}.
@@ -132,7 +134,7 @@ async def set_share_from_multiplicative_share(
     Path Parameters:
     - `share_name`: The name of the share to set
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -174,7 +176,7 @@ async def set_share_from_multiplicative_share(
     },
 )
 async def set_shares(
-    values: SetShareData, current_user: dict = Depends(get_current_user)
+    values: SetShareData, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Sets the share value for a given share name.
@@ -183,7 +185,7 @@ async def set_shares(
     - `share_name`: The name of the share
     - `share_value`: The share value (hexadecimal string)
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -230,7 +232,8 @@ async def set_shares(
     },
 )
 async def calculate_additive_share(
-    values: AdditiveShareData, current_user: dict = Depends(get_current_user)
+    values: AdditiveShareData,
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
     Calculates the additive share from the two provided shares as:
@@ -240,7 +243,7 @@ async def calculate_additive_share(
     - `first_share_name`: The name of the first share
     - `second_share_name`: The name of the second share
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -299,7 +302,7 @@ async def calculate_additive_share(
     },
 )
 async def set_share_from_additive_share(
-    share_name: str, current_user: dict = Depends(get_current_user)
+    share_name: str, current_user: Annotated[TokenData, Depends(get_current_user)]
 ):
     """
     Sets the share named {share_name} using the previously calculated additive share.
@@ -307,7 +310,7 @@ async def set_share_from_additive_share(
     Path Parameters:
     - `share_name`: The name of the share to set
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

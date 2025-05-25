@@ -1,4 +1,5 @@
 import asyncio
+from typing import Annotated
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,6 +12,7 @@ from api.models.parsers import (
     SharedQData,
     SharedRData,
     SharedUData,
+    TokenData,
 )
 from api.utils.utils import (
     Shamir,
@@ -58,11 +60,11 @@ router = APIRouter(
         },
     },
 )
-async def redistribute_q(current_user: dict = Depends(get_current_user)):
+async def redistribute_q(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Computes 'q' shares using a Shamir scheme and distributes them to all participating parties.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -157,7 +159,8 @@ async def set_received_q(values: SharedQData, request: Request):
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
-    #     ) TODO:
+    #     ) TODO: When deploying, uncomment this line
+    # to ensure that only the party with the correct IP can set the value
 
     validate_initialized_shares(["shared_q"])
 
@@ -213,7 +216,9 @@ async def set_received_q(values: SharedQData, request: Request):
         },
     },
 )
-async def redistribute_r(values: RData, current_user: dict = Depends(get_current_user)):
+async def redistribute_r(
+    values: RData, current_user: Annotated[TokenData, Depends(get_current_user)]
+):
     """
     Calculates and distributes the 'r' shares to all participating parties, based on previously distributed 'q' shares.
 
@@ -221,7 +226,7 @@ async def redistribute_r(values: RData, current_user: dict = Depends(get_current
     - `first_share_name`: name of the first share
     - `second_share_name`: name of the second share
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -336,7 +341,8 @@ async def set_received_r(values: SharedRData, request: Request):
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
-    #     ) TODO:
+    #     ) TODO: When deploying, uncomment this line
+    # to ensure that only the party with the correct IP can set the value
 
     validate_initialized_shares(["shared_r"])
 
@@ -392,11 +398,11 @@ async def set_received_r(values: SharedRData, request: Request):
         },
     },
 )
-async def redistribute_u(current_user: dict = Depends(get_current_user)):
+async def redistribute_u(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Calculates and distributes the 'u' shares to all participating parties.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
@@ -496,7 +502,8 @@ async def receive_u_from_parties(values: SharedUData, request: Request):
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
-    #     ) TODO:
+    #     ) TODO: When deploying, uncomment this line
+    # to ensure that only the party with the correct IP can set the value
 
     validate_initialized_shares(["shared_u"])
 
@@ -546,11 +553,11 @@ async def receive_u_from_parties(values: SharedUData, request: Request):
         },
     },
 )
-async def calculate_u(current_user: dict = Depends(get_current_user)):
+async def calculate_u(current_user: Annotated[TokenData, Depends(get_current_user)]):
     """
     Calculates the shared 'u' value from distributed 'u' shares.
     """
-    if current_user.get("isAdmin") == False:
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

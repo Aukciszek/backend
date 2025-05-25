@@ -104,6 +104,12 @@ class ResultResponse(BaseModel):
 
     result: str
 
+class StatusResponse(BaseModel):
+    """
+    Response model for endpoints that simply return a status message.
+    """
+
+    status: str
 
 class InitialValuesResponse(BaseModel):
     """

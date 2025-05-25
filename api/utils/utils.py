@@ -21,7 +21,7 @@ def validate_initialized(required_keys):
 
 def validate_initialized_shares(required_keys):
     if state["shares"] is None:
-        raise HTTPException(status_code=400, detail=f"shares is not initialized.")
+        raise HTTPException(status_code=400, detail="shares is not initialized.")
     for key in required_keys:
         if state["shares"][key] is None:
             raise HTTPException(

@@ -12,6 +12,7 @@ from api.routers import (
     reset,
     shares,
     xor,
+    status,
 )
 
 app = FastAPI(
@@ -19,6 +20,14 @@ app = FastAPI(
     version="1.0.0",
     description="API for performing secure multi-party computation protocols.",
     openapi_tags=[
+        {
+            "name": "Status",
+            "description": "Endpoints for checking the status of the server.",
+        },
+        {
+            "name": "Authentication",
+            "description": "Endpoints for user registration and login.",
+        },
         {
             "name": "Initialization",
             "description": "Endpoints for setting up the initial parameters of the MPC protocol.",
@@ -28,8 +37,8 @@ app = FastAPI(
             "description": "Endpoints for managing and setting client shares.",
         },
         {
-            "name": "Comparison",
-            "description": "Endpoints for performing secure comparison protocols.",
+            "name": "Bidders",
+            "description": "Endpoints for retrieving information about bidders",
         },
         {
             "name": "Redistribution",
@@ -44,20 +53,16 @@ app = FastAPI(
             "description": "Endpoint for secure XOR operation.",
         },
         {
+            "name": "Comparison",
+            "description": "Endpoints for performing secure comparison protocols.",
+        },
+        {
             "name": "Reconstruction",
             "description": "Endpoint for reconstructing the final secret or value.",
         },
         {
             "name": "Reset",
             "description": "Endpoints for resetting the server state.",
-        },
-        {
-            "name": "Authentication",
-            "description": "Endpoints for user registration and login.",
-        },
-        {
-            "name": "Bidders",
-            "description": "Endpoints for retrieving information about bidders",
         },
     ],
 )
@@ -70,13 +75,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(status.router)
 app.include_router(auth.router)
 app.include_router(initialization.router)
 app.include_router(shares.router)
-app.include_router(comparison.router)
+app.include_router(bidders.router)
 app.include_router(redistribution.router)
 app.include_router(multiplication.router)
 app.include_router(xor.router)
+app.include_router(comparison.router)
 app.include_router(reconstruction.router)
 app.include_router(reset.router)
-app.include_router(bidders.router)

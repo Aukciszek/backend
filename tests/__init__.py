@@ -882,6 +882,10 @@ async def main():
     print("Parties: ", parties)
 
     # Shamir's secret sharing
+    # When compared numbers d,s are l bits long
+    # If random number r is l+k+1 bits long and r >=0
+    # Then a = 2^(l+k+1) - r + 2^l + d - s
+    # And p >= 2^(l+k+1) + 2^(l+1)
     p = "0x35"
     t = (len(parties) - 1) // 2
     n = len(parties)

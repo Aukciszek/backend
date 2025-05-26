@@ -61,7 +61,7 @@ async def send_put_request(session, url, json_data=None, headers=None):
             if response.status != 201:
                 print(f"Failed PUT request to {url}: {message}")
 
-            return await response.json()
+            return message
     except aiohttp.ClientError as e:
         print(f"HTTP error occurred for {url}: {e}")
         return {}

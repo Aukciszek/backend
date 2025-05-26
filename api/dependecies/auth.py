@@ -35,6 +35,13 @@ def create_access_tokens(data: dict, expires_delta: timedelta | None = None):
                 if isinstance(SERVERS, (list, tuple)) and i < len(SERVERS)
                 else None
             )
+
+            if len(SECRET_KEYS_JWT) != len(SERVERS):
+                raise HTTPException(
+                    status_code=400,
+                    detail="SECRET_KEYS_JWT and SERVERS must have the same length",
+                )
+
             encoded_jwt.append(
                 {
                     "access_token": jwt.encode(
@@ -70,7 +77,7 @@ def authenticate_user(email: str, password: str):
     Returns user data if authentication is successful, otherwise returns False.
     """
     user = supabase.table("users").select("*").eq("email", email).execute()
-    if not user:
+    if user.data == []:
         return False
     if not verify_password(password, user.data[0].get("password")):
         return False

@@ -1,9 +1,9 @@
 import asyncio
 from random import sample
-from typing import Annotated
+from typing import Annotated, Optional
 
 import aiohttp
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
@@ -57,7 +57,11 @@ router = APIRouter(
         },
     },
 )
-async def get_share_to_reconstruct(share_to_reconstruct: str, request: Request):
+async def get_share_to_reconstruct(
+    share_to_reconstruct: str,
+    request: Request,
+    X_Forwarded_For: Optional[str] = Header(None),
+):
     """
     Returns the share for reconstruction associated with the requested share key.
 
@@ -70,7 +74,17 @@ async def get_share_to_reconstruct(share_to_reconstruct: str, request: Request):
             detail="Invalid TRUSTED_IPS configuration.",
         )
 
-    if not request.client or request.client.host not in TRUSTED_IPS:
+    if X_Forwarded_For:
+        forwarded_ip = X_Forwarded_For.split(":")[0]
+        if forwarded_ip not in TRUSTED_IPS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
+    elif not request.client or request.client.host not in TRUSTED_IPS:
+        # If no X-Forwarded-For header is present, check the direct client IP
+        # This is useful for cases where the request is not behind a proxy
+        # and the client IP is directly accessible.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",

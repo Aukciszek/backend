@@ -1,6 +1,4 @@
-from typing import Optional
-
-from fastapi import APIRouter, Header, Request, status
+from fastapi import APIRouter, status
 
 from api.models.parsers import StatusResponse
 
@@ -24,17 +22,5 @@ router = APIRouter(
         400: {"description": "Invalid request."},
     },
 )
-async def get_status(request: Request, X_Forwarded_For: Optional[str] = Header(None)):
-    # TODO: Delete
-
-    if request.client:
-        print(request.client.host)
-    else:
-        print("No client information available")
-
-    if X_Forwarded_For:
-        print(f"X-Forwarded-For: {X_Forwarded_For}")
-    else:
-        print("No X-Forwarded-For header present")
-
+async def get_status():
     return {"status": "OK"}

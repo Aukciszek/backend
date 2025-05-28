@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 
 from api.models.parsers import StatusResponse
 
@@ -22,5 +22,12 @@ router = APIRouter(
         400: {"description": "Invalid request."},
     },
 )
-async def get_status():
+async def get_status(request: Request):
+    # TODO: Delete
+
+    if request.client:
+        print(request.client.host)
+    else:
+        print("No client information available")
+
     return {"status": "OK"}

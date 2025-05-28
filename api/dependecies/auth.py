@@ -18,6 +18,10 @@ def create_access_tokens(data: dict, expires_delta: timedelta | None = None):
     """
     Generates a JWT access token.
     """
+    # check if server is a login server
+    if supabase is None:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Server is not a login server.")
+
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -76,6 +80,10 @@ def authenticate_user(email: str, password: str):
     Authenticates a user by checking the email and password against the database.
     Returns user data if authentication is successful, otherwise returns False.
     """
+    # check if server is a login server
+    if supabase is None:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Server is not a login server.")
+    
     user = supabase.table("users").select("*").eq("email", email).execute()
     if user.data == []:
         return False

@@ -1,0 +1,14 @@
+fastapi
+starlette
+api
+decouple
+datetime
+typing
+jwt
+passlib
+pydantic
+asyncio
+aiohttp
+random
+copy
+os

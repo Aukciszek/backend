@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import aiohttp
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from api.config import TRUSTED_IPS, WIREGUARD_IPS, state
+from api.config import TRUSTED_IPS, WIREGUARD_IPS, USING_WIREGUARD, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (
@@ -58,12 +58,31 @@ router = APIRouter(
     },
 )
 
-def IP_in_WIREGUARD_IPS(ip):
-    if isinstance(WIREGUARD_IPS, (list, tuple)) and ip in WIREGUARD_IPS:
-        return True
+def request_is_from_trusted_ip(request: Request, X_Forwarded_For: Optional[str] = Header(None)):
+    if USING_WIREGUARD:
+        trusted_ips = WIREGUARD_IPS
+        used_configuration = "WIREGUARD_IPS"
     else:
-        return False
-
+        trusted_ips = TRUSTED_IPS
+        used_configuration = "TRUSTED_IPS"
+    
+    is_trusted = False
+    if isinstance(trusted_ips, (list, tuple)):
+        if X_Forwarded_For:
+            forwarded_ip = X_Forwarded_For.split(":")[0]
+            if forwarded_ip in trusted_ips:
+                is_trusted=True
+        elif request.client is not None and request.client.host in trusted_ips:
+            # If no X-Forwarded-For header is present, check the direct client IP
+            # This is useful for cases where the request is not behind a proxy
+            # and the client IP is directly accessible.
+            is_trusted = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid {used_configuration} configuration.",
+            )
+    return is_trusted
 
 async def get_share_to_reconstruct(
     share_to_reconstruct: str,
@@ -76,27 +95,11 @@ async def get_share_to_reconstruct(
     Path Parameters:
     - share_to_reconstruct: The share key to retrieve the associated share.
     """
-    if not isinstance(TRUSTED_IPS, (list, tuple)):
+    if not request_is_from_trusted_ip(request,X_Forwarded_For):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid TRUSTED_IPS configuration.",
-        )
-
-    if X_Forwarded_For:
-        forwarded_ip = X_Forwarded_For.split(":")[0]
-        if forwarded_ip not in TRUSTED_IPS and not IP_in_WIREGUARD_IPS(forwarded_ip):
-            raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
-    elif not request.client or (request.client.host not in TRUSTED_IPS and not IP_in_WIREGUARD_IPS(request.client.host)):
-        # If no X-Forwarded-For header is present, check the direct client IP
-        # This is useful for cases where the request is not behind a proxy
-        # and the client IP is directly accessible.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this resource.",
-        )
 
     validate_initialized(["id"])
     validate_initialized_shares([share_to_reconstruct])

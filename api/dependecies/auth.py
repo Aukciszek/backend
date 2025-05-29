@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
-from api.config import ALGORITHM, SECRET_KEYS_JWT, SERVER_ID, SERVERS
+from api.config import ALGORITHM, SECRET_KEYS_JWT, SERVERS
 from api.dependecies.supabase import supabase
 from api.models.parsers import TokenData
 
@@ -20,7 +20,10 @@ def create_access_tokens(data: dict, expires_delta: timedelta | None = None):
     """
     # check if server is a login server
     if supabase is None:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Server is not a login server.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server is not a login server.",
+        )
 
     to_encode = data.copy()
     if expires_delta:
@@ -82,8 +85,11 @@ def authenticate_user(email: str, password: str):
     """
     # check if server is a login server
     if supabase is None:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Server is not a login server.")
-    
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server is not a login server.",
+        )
+
     user = supabase.table("users").select("*").eq("email", email).execute()
     if user.data == []:
         return False
@@ -108,9 +114,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Tok
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Invalid SECRET_KEYS_JWT configuration",
             )
-        payload = jwt.decode(
-            token, SECRET_KEYS_JWT[SERVER_ID], algorithms=[str(ALGORITHM)]
-        )
+        payload = jwt.decode(token, SECRET_KEYS_JWT[0], algorithms=[str(ALGORITHM)])
         uid = payload.get("uid")
         if uid is None:
             print("none uid")

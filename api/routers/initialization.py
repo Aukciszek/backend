@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.config import SERVERS, state
+from api.config import SERVERS, WIREGUARD_IPS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import (
     InitialValuesData,
@@ -106,6 +106,11 @@ async def set_initial_values(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Prime number must be positive.",
         )
+    
+    if isinstance(WIREGUARD_IPS, (list, tuple)) and len(WIREGUARD_IPS)==len(SERVERS):
+        parties = WIREGUARD_IPS
+    else:
+        parties = SERVERS
 
     state.update(
         {
@@ -113,7 +118,7 @@ async def set_initial_values(
             "n": n,
             "id": values.id,
             "p": int(values.p, 16),
-            "parties": SERVERS,
+            "parties": parties,
             "shares": {
                 "client_shares": [],
                 "shared_r": [None] * n,

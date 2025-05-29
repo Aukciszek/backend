@@ -22,9 +22,10 @@ You’ll need to run **five separate backend instances**, each in its own termin
 - Only **Terminal 1** acts as the **login server**, requiring a valid `SUPABASE_URL`, `SUPABASE_KEY`, and the **full** `SECRET_KEYS_JWT` list.
 - Other terminals act as additional backend nodes and only need their corresponding JWT key in the appropriate position of the list. The rest of the entries should be `None`.
 - The order of servers in the `SERVERS` environment variable must match the order of JWT keys in `SECRET_KEYS_JWT`.
+- The order of keys in `SECRET_KEYS_JWT` corresponds to the order of servers defined in the `SERVERS` environment variable (e.g., `SERVERS='http://localhost:5001, http://localhost:5002, http://localhost:5003, http://localhost:5004, http://localhost:5005'`).
 
 > **Example**:  
-> If a server runs on `localhost:5003`, its JWT key should be the **third** in the `SECRET_KEYS_JWT` list.
+> If a server is running on `localhost:5003`, it corresponds to the **third** key in the `SECRET_KEYS_JWT` list.
 
 ---
 

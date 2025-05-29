@@ -36,7 +36,11 @@ router = APIRouter(
         400: {
             "description": "Invalid request data.",
             "content": {
-                "application/json": {"example": {"detail": "Password should be at least 8 characters long."}}
+                "application/json": {
+                    "example": {
+                        "detail": "Password should be at least 8 characters long."
+                    }
+                }
             },
         },
         409: {
@@ -58,13 +62,17 @@ async def register(user_req_data: RegisterData):
     """
     if len(user_req_data.password) < 8:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Password should be at least 8 characters long."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password should be at least 8 characters long.",
         )
 
     # check if server is a login server
     if supabase is None:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Server is not a login server.")
-    
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server is not a login server.",
+        )
+
     user = (
         supabase.table("users").select("*").eq("email", user_req_data.email).execute()
     )

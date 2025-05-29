@@ -6,7 +6,6 @@ TRUSTED_IPS = dconfig("TRUSTED_IPS", cast=Csv(str))
 SERVERS = dconfig("SERVERS", cast=Csv(str))
 ALGORITHM = dconfig("ALGORITHM", cast=str)
 ACCESS_TOKEN_EXPIRE_MINUTES = dconfig("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int)
-SERVER_ID = dconfig("SERVER_ID", cast=int, default=0)
 
 
 state = {

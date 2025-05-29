@@ -1,44 +1,77 @@
 # Aukciszek Backend
 
-## How to Start the Backend
+## 🚀 Getting Started
 
-It's recommended to have `uv` installed.
+To run the Aukciszek backend, it's **recommended** to use [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — a fast Python package and script runner.
 
-Installation guide: https://docs.astral.sh/uv/getting-started/installation/
+---
 
-To start the backend, run the following command:
+## 📦 Prerequisites
+
+Install `uv` by following the official guide:  
+👉 https://docs.astral.sh/uv/getting-started/installation/
+
+---
+
+## 🔧 Running the Backend
+
+You’ll need to run **five separate backend instances**, each in its own terminal window and on a different port.
+
+### Key Concepts
+
+- Only **Terminal 1** acts as the **login server**, requiring a valid `SUPABASE_URL`, `SUPABASE_KEY`, and the **full** `SECRET_KEYS_JWT` list.
+- Other terminals act as additional backend nodes and only need their corresponding JWT key in the appropriate position of the list. The rest of the entries should be `None`.
+- The order of servers in the `SERVERS` environment variable must match the order of JWT keys in `SECRET_KEYS_JWT`.
+
+> **Example**:  
+> If a server runs on `localhost:5003`, its JWT key should be the **third** in the `SECRET_KEYS_JWT` list.
+
+---
+
+### 🖥️ Terminal Commands
+
+#### Terminal 1 (Login Server)
 
 ```bash
-SERVER_ID="ID" uv run uvicorn api.__init__:app --port PORT
+export SUPABASE_URL="your_supabase_url"
+export SUPABASE_KEY="your_supabase_key"
+export SECRET_KEYS_JWT="server_1_key,server_2_key,server_3_key,server_4_key,server_5_key"
+uv run uvicorn api.__init__:app --port 5001
 ```
 
-You need to run this command in five different terminals, each with a different port. For example:
+#### Terminal 2
 
-Terminal 1: `SERVER_ID="0" uv run uvicorn api.__init__:app --port 5001`
+```bash
+export SECRET_KEYS_JWT="server_2_key,None,None,None,None"
+uv run uvicorn api.__init__:app --port 5002
+```
 
-Terminal 2: `SERVER_ID="1" uv run uvicorn api.__init__:app --port 5002`
+#### Terminal 3
 
-Terminal 3: `SERVER_ID="2" uv run uvicorn api.__init__:app --port 5003`
+```bash
+export SECRET_KEYS_JWT="server_3_key,None,None,None,None"
+uv run uvicorn api.__init__:app --port 5003
+```
 
-Terminal 4: `SERVER_ID="3" uv run uvicorn api.__init__:app --port 5004`
+#### Terminal 4
 
-Terminal 5: `SERVER_ID="4" uv run uvicorn api.__init__:app --port 5005`
+```bash
+export SECRET_KEYS_JWT="server_4_key,None,None,None,None"
+uv run uvicorn api.__init__:app --port 5004
+```
 
-To make only one of the servers a valid login server without editing .env file, add more env variables redeclarations. For exaple on Windows:
+#### Terminal 5
 
-Terminal 1: $env:SERVER_ID="0"; $env:SUPABASE_URL="correct_url"; $env:SUPABASE_KEY="correct_key"; $env:SECRET_KEYS_JWT="server_0_key, server_1_key, server_2_key, server_3_key, server_4_key"; uv run uvicorn api.__init__:app --port 5001
+```bash
+export SECRET_KEYS_JWT="server_5_key,None,None,None,None"
+uv run uvicorn api.__init__:app --port 5005
+```
 
-Terminal 2: $env:SERVER_ID="1"; $env:SUPABASE_URL="None"; $env:SUPABASE_KEY="None"; $env:SECRET_KEYS_JWT="0, server_1_key, 0, 0, 0"; uv run uvicorn api.__init__:app --port 5002
+---
 
-Terminal 3: $env:SERVER_ID="2"; $env:SUPABASE_URL="None"; $env:SUPABASE_KEY="None"; $env:SECRET_KEYS_JWT="0, 0, server_2_key, 0, 0"; uv run uvicorn api.__init__:app --port 5003
+## 🧪 Running Tests
 
-Terminal 4: $env:SERVER_ID="3"; $env:SUPABASE_URL="None"; $env:SUPABASE_KEY="None"; $env:SECRET_KEYS_JWT="0, 0, 0, server_3_key, 0"; uv run uvicorn api.__init__:app --port 5004
-
-Terminal 5: $env:SERVER_ID="4"; $env:SUPABASE_URL="None"; $env:SUPABASE_KEY="None"; $env:SECRET_KEYS_JWT="0, 0, 0, 0, server_4_key"; uv run uvicorn api.__init__:app --port 5005
-
-## How to Test the Backend
-
-To test the backend, run the following command:
+To run the backend tests:
 
 ```bash
 uv run python tests/__init__.py

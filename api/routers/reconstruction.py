@@ -5,7 +5,7 @@ from typing import Annotated
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.config import TRUSTED_IPS, WIREGUARD_IPS, state
+from api.config import TRUSTED_IPS, WIREGUARD_IPS, USING_WIREGUARD, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (
@@ -57,26 +57,49 @@ router = APIRouter(
         },
     },
 )
-async def get_share_to_reconstruct(share_to_reconstruct: str, request: Request):
+
+def request_is_from_trusted_ip(request: Request, X_Forwarded_For: Optional[str] = Header(None)):
+    if USING_WIREGUARD:
+        trusted_ips = WIREGUARD_IPS
+        used_configuration = "WIREGUARD_IPS"
+    else:
+        trusted_ips = TRUSTED_IPS
+        used_configuration = "TRUSTED_IPS"
+    
+    is_trusted = False
+    if isinstance(trusted_ips, (list, tuple)):
+        if X_Forwarded_For:
+            forwarded_ip = X_Forwarded_For.split(":")[0]
+            if forwarded_ip in trusted_ips:
+                is_trusted=True
+        elif request.client is not None and request.client.host in trusted_ips:
+            # If no X-Forwarded-For header is present, check the direct client IP
+            # This is useful for cases where the request is not behind a proxy
+            # and the client IP is directly accessible.
+            is_trusted = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid {used_configuration} configuration.",
+            )
+    return is_trusted
+
+async def get_share_to_reconstruct(
+    share_to_reconstruct: str,
+    request: Request
+):
     """
     Returns the share for reconstruction associated with the requested share key.
 
     Path Parameters:
     - share_to_reconstruct: The share key to retrieve the associated share.
     """
-
-    if not isinstance(TRUSTED_IPS, (list, tuple)):
+    if not request_is_from_trusted_ip(request):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid TRUSTED_IPS configuration.",
-        )
-
-    if not request.client or request.client.host not in TRUSTED_IPS:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this resource.",
-        )
-
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
+    
     # Remove forbidden keys from the shares dictionary for safety
     forbidden_keys = {"client_shares", "shared_r", "shared_q", "shared_u"}
     shares = {

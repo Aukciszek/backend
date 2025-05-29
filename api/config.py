@@ -4,6 +4,7 @@ from decouple import config as dconfig
 SECRET_KEYS_JWT = dconfig("SECRET_KEYS_JWT", cast=Csv(str))
 TRUSTED_IPS = dconfig("TRUSTED_IPS", cast=Csv(str))
 SERVERS = dconfig("SERVERS", cast=Csv(str))
+WIREGUARD_IPS = dconfig("WIREGUARD_IPS", cast=Csv(str))
 ALGORITHM = dconfig("ALGORITHM", cast=str)
 ACCESS_TOKEN_EXPIRE_MINUTES = dconfig("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int)
 

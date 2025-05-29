@@ -5,7 +5,7 @@ from typing import Annotated
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.config import TRUSTED_IPS, state
+from api.config import TRUSTED_IPS, WIREGUARD_IPS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (

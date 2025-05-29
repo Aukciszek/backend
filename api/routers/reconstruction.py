@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import aiohttp
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from api.config import TRUSTED_IPS, state
+from api.config import TRUSTED_IPS, WIREGUARD_IPS, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (
@@ -57,6 +57,14 @@ router = APIRouter(
         },
     },
 )
+
+def IP_in_WIREGUARD_IPS(ip):
+    if isinstance(WIREGUARD_IPS, (list, tuple)) and ip in WIREGUARD_IPS:
+        return True
+    else:
+        return False
+
+
 async def get_share_to_reconstruct(
     share_to_reconstruct: str,
     request: Request,
@@ -76,12 +84,12 @@ async def get_share_to_reconstruct(
 
     if X_Forwarded_For:
         forwarded_ip = X_Forwarded_For.split(":")[0]
-        if forwarded_ip not in TRUSTED_IPS:
+        if forwarded_ip not in TRUSTED_IPS and not IP_in_WIREGUARD_IPS(forwarded_ip):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
-    elif not request.client or request.client.host not in TRUSTED_IPS:
+    elif not request.client or (request.client.host not in TRUSTED_IPS and not IP_in_WIREGUARD_IPS(request.client.host)):
         # If no X-Forwarded-For header is present, check the direct client IP
         # This is useful for cases where the request is not behind a proxy
         # and the client IP is directly accessible.

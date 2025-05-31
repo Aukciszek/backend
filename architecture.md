@@ -1,6 +1,6 @@
 # Aukciszek Backend Architecture
 
-**Python Version:** 3.13.3
+**Python Version:** 3.13.3 (recommended version from [python.org](https://www.python.org/))
 
 **Framework:**  
 The backend is built on [FastAPI](https://fastapi.tiangolo.com/) (v0.115.12) which provides a high-performance API.
@@ -30,6 +30,8 @@ Endpoints used for server-to-server communication are secured by validating that
 **Server Communication:**
 
 - **Production:**  
-  Servers in production communicate with each other over **HTTPS** to ensure secure data transmission. Additionally, servers must not be deployed behind a proxy, so they receive the real client IP. If operating behind a proxy, the server must be configured to use only trusted proxy headers (such as `X-Forwarded-For` or `X-Real-IP`) and must not blindly forward these headers to the backend. (Note: although previous versions supported proxy header configurations, this feature was removed to avoid the risks associated with misconfigured proxies.)
+  In production, servers communicate over HTTPS for secure data transmission. Generally, you shouldn't deploy servers behind a proxy unless it's absolutely essential.
+  If a proxy is used, it must be explicitly configured and fully trusted. This trusted proxy is responsible for replacing any existing `X-Forwarded-For` or `X-Real-IP` headers from untrusted sources with the true client's IP address it received. Our recent versions have removed proxy header support to reduce the risk of proxy misconfiguration and potential security vulnerabilities, emphasizing the need for a properly secured and trusted proxy when one is in use.
+
 - **Alternative Communication:**  
   There is also an option to establish communication over **WireGuard**. This method is fully described in the `wireguard` branch.

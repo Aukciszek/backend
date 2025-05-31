@@ -1,8 +1,8 @@
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 
 import aiohttp
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, state
 from api.dependecies.auth import get_current_user
@@ -132,9 +132,7 @@ async def redistribute_q(current_user: Annotated[TokenData, Depends(get_current_
         },
     },
 )
-async def set_received_q(
-    values: SharedQData, request: Request, X_Forwarded_For: Optional[str] = Header(None)
-):
+async def set_received_q(values: SharedQData, request: Request):
     """
     Receives a 'q' share from another party and stores it.
 
@@ -151,36 +149,19 @@ async def set_received_q(
             detail="Invalid TRUSTED_IPS configuration.",
         )
 
-    if X_Forwarded_For:
-        forwarded_ip = X_Forwarded_For.split(":")[0]
-        if forwarded_ip not in TRUSTED_IPS:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
-    elif not request.client or request.client.host not in TRUSTED_IPS:
-        # If no X-Forwarded-For header is present, check the direct client IP
-        # This is useful for cases where the request is not behind a proxy
-        # and the client IP is directly accessible.
+    if not request.client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request does not contain client information.",
+        )
+
+    if request.client.host not in TRUSTED_IPS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
 
-    # if X_Forwarded_For:
-    #     forwarded_ip = X_Forwarded_For.split(":")[0]
-    #     if TRUSTED_IPS.index(forwarded_ip) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # elif request.client and request.client.host:
-    #     if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # else:
+    # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
@@ -339,9 +320,7 @@ async def redistribute_r(
         },
     },
 )
-async def set_received_r(
-    values: SharedRData, request: Request, X_Forwarded_For: Optional[str] = Header(None)
-):
+async def set_received_r(values: SharedRData, request: Request):
     """
     Receives and stores an 'r' share from another participating party.
 
@@ -358,43 +337,25 @@ async def set_received_r(
             detail="Invalid TRUSTED_IPS configuration.",
         )
 
-    if X_Forwarded_For:
-        forwarded_ip = X_Forwarded_For.split(":")[0]
-        if forwarded_ip not in TRUSTED_IPS:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
-    elif not request.client or request.client.host not in TRUSTED_IPS:
-        # If no X-Forwarded-For header is present, check the direct client IP
-        # This is useful for cases where the request is not behind a proxy
-        # and the client IP is directly accessible.
+    if not request.client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request does not contain client information.",
+        )
+
+    if request.client.host not in TRUSTED_IPS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
 
-    # if X_Forwarded_For:
-    #     forwarded_ip = X_Forwarded_For.split(":")[0]
-    #     if TRUSTED_IPS.index(forwarded_ip) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # elif request.client and request.client.host:
-    #     if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # else:
+    # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
     #     ) TODO: When deploying, uncomment this line
     # to ensure that only the party with the correct IP can set the value
-
-    validate_initialized_shares(["shared_r"])
+    # validate_initialized_shares(["shared_r"])
 
     if (
         values.party_id > len(state.get("shares", {}).get("shared_r", []))
@@ -525,9 +486,7 @@ async def redistribute_u(current_user: Annotated[TokenData, Depends(get_current_
         },
     },
 )
-async def receive_u_from_parties(
-    values: SharedUData, request: Request, X_Forwarded_For: Optional[str] = Header(None)
-):
+async def receive_u_from_parties(values: SharedUData, request: Request):
     """
     Receives a 'u' share from another party and stores it.
 
@@ -544,36 +503,19 @@ async def receive_u_from_parties(
             detail="Invalid TRUSTED_IPS configuration.",
         )
 
-    if X_Forwarded_For:
-        forwarded_ip = X_Forwarded_For.split(":")[0]
-        if forwarded_ip not in TRUSTED_IPS:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
-    elif not request.client or request.client.host not in TRUSTED_IPS:
-        # If no X-Forwarded-For header is present, check the direct client IP
-        # This is useful for cases where the request is not behind a proxy
-        # and the client IP is directly accessible.
+    if not request.client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request does not contain client information.",
+        )
+
+    if request.client.host not in TRUSTED_IPS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
 
-    # if X_Forwarded_For:
-    #     forwarded_ip = X_Forwarded_For.split(":")[0]
-    #     if TRUSTED_IPS.index(forwarded_ip) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # elif request.client and request.client.host:
-    #     if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             detail="You do not have permission to access this resource.",
-    #         )
-    # else:
+    # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",

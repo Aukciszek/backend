@@ -30,7 +30,7 @@ Endpoints used for server-to-server communication are secured by validating that
 **Server Communication:**
 
 - **Production:**  
-  Servers in production communicate with each other over **HTTPS** to ensure secure data transmission.
+  Servers in production communicate with each other over **HTTPS** to ensure secure data transmission. Additionally, servers must not be deployed behind a proxy, so they receive the real client IP.
 
 - **Alternative Communication:**  
   There is also an option to establish communication over **WireGuard**. This method is fully described in the `wireguard` branch.

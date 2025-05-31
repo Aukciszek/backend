@@ -19,7 +19,7 @@ The backend is built on [FastAPI](https://fastapi.tiangolo.com/) (v0.115.12) whi
 
 **User Data and Security:**
 
-The backend communicates with **Supabase**, where user data is stored (uid, email, password, and isAdmin). Every endpoint that handles user interactions is protected by middleware, which verifies the user's JWT to ensure proper authentication.
+The backend communicates with **Supabase**, where user data is stored (uid, email, password, and isAdmin). Every endpoint that handles user interactions is protected by middleware, which verifies the user's JWT to ensure proper authentication. User passwords are securely hashed using argon2.
 
 Endpoints used for server-to-server communication are secured by validating that the request comes from a trusted IP, and ensures that the IP from which a request is sent only modifies the assets assigned to it.
 

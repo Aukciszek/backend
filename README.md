@@ -1,5 +1,7 @@
 # Aukciszek Backend
 
+Aukciszek backend implements a Multi-Party Computation (MPC) protocol, specifically designed based on the principles outlined in the publication "Secure Multiparty Computation Goes Live" (https://eprint.iacr.org/2008/068.pdf). This foundational paper describes practical techniques for achieving secure multi-party computation, where multiple parties can jointly compute a function over their private inputs without revealing those inputs to each other. It's important to note that this backend specifically implements the comparison functionality as described in the paper, leveraging the distributed and collaborative nature inherent in MPC protocols.
+
 ## 🚀 Getting Started
 
 To run the Aukciszek backend, it's **recommended** to use [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — a fast Python package and script runner.
@@ -67,6 +69,12 @@ uv run uvicorn api.__init__:app --port 5004
 export SECRET_KEYS_JWT="server_5_key,None,None,None,None"
 uv run uvicorn api.__init__:app --port 5005
 ```
+
+---
+
+### 📖 API Documentation
+
+Once the server is running, you can access the API documentation at `http://localhost:5001/docs`
 
 ---
 

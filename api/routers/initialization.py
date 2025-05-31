@@ -193,7 +193,9 @@ async def get_initial_values(_: Annotated[TokenData, Depends(get_current_user)])
         201: {
             "description": "Matrix A calculated successfully.",
             "content": {
-                "application/json": {"example": {"result": "Matrix A calculated"}}
+                "application/json": {
+                    "example": {"result": "Matrix A calculated successfully."}
+                }
             },
         },
         400: {

@@ -38,35 +38,35 @@ You’ll need to run **five separate backend instances**, each in its own termin
 ```bash
 export SUPABASE_URL="your_supabase_url"
 export SUPABASE_KEY="your_supabase_key"
-export SECRET_KEYS_JWT="server_1_key,server_2_key,server_3_key,server_4_key,server_5_key"
+export SECRET_KEYS_JWT="server_1_key, server_2_key, server_3_key, server_4_key, server_5_key"
 uv run uvicorn api.__init__:app --port 5001
 ```
 
 #### Terminal 2
 
 ```bash
-export SECRET_KEYS_JWT="server_2_key,None,None,None,None"
+export SECRET_KEYS_JWT="server_2_key, None, None, None, None"
 uv run uvicorn api.__init__:app --port 5002
 ```
 
 #### Terminal 3
 
 ```bash
-export SECRET_KEYS_JWT="server_3_key,None,None,None,None"
+export SECRET_KEYS_JWT="server_3_key, None, None, None, None"
 uv run uvicorn api.__init__:app --port 5003
 ```
 
 #### Terminal 4
 
 ```bash
-export SECRET_KEYS_JWT="server_4_key,None,None,None,None"
+export SECRET_KEYS_JWT="server_4_key, None, None, None, None"
 uv run uvicorn api.__init__:app --port 5004
 ```
 
 #### Terminal 5
 
 ```bash
-export SECRET_KEYS_JWT="server_5_key,None,None,None,None"
+export SECRET_KEYS_JWT="server_5_key, None, None, None, None"
 uv run uvicorn api.__init__:app --port 5005
 ```
 

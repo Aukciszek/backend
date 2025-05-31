@@ -96,11 +96,6 @@ async def set_initial_values(
     n = len(SERVERS)
     t = (n - 1) // 2
 
-    if 2 * t + 1 != n:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid t or n values."
-        )
-
     if int(values.p, 16) <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

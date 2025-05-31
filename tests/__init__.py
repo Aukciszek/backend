@@ -890,8 +890,8 @@ async def main():
     n = len(parties)
     l = 3
     k = 1
-    first_bid = 24
-    second_bid = 28
+    first_bid = 5
+    second_bid = 3
     first_bid_shares = Shamir(t, n, first_bid, int(p, 16))  # First client
     second_bid_shares = Shamir(t, n, second_bid, int(p, 16))  # Second client
 

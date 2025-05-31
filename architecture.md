@@ -30,7 +30,6 @@ Endpoints used for server-to-server communication are secured by validating that
 **Server Communication:**
 
 - **Production:**  
-  Servers in production communicate with each other over **HTTPS** to ensure secure data transmission. Additionally, servers must not be deployed behind a proxy, so they receive the real client IP.
-
+  Servers in production communicate with each other over **HTTPS** to ensure secure data transmission. Additionally, servers must not be deployed behind a proxy, so they receive the real client IP. If operating behind a proxy, the server must be configured to use only trusted proxy headers (such as `X-Forwarded-For` or `X-Real-IP`) and must not blindly forward these headers to the backend. (Note: although previous versions supported proxy header configurations, this feature was removed to avoid the risks associated with misconfigured proxies.)
 - **Alternative Communication:**  
   There is also an option to establish communication over **WireGuard**. This method is fully described in the `wireguard` branch.

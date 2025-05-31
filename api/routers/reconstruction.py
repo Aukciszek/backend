@@ -6,6 +6,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, WIREGUARD_IPS, USING_WIREGUARD, state
+from api.config import TRUSTED_IPS, WIREGUARD_IPS, USING_WIREGUARD, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import ReconstructSecret, ReturnCalculatedShare, TokenData
 from api.utils.utils import (
@@ -110,9 +111,9 @@ async def get_share_to_reconstruct(
 
     if share_to_reconstruct.strip().lower() not in shares:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this resource.",
-        )
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
 
     validate_initialized(["id"])
     validate_initialized_shares([share_to_reconstruct])

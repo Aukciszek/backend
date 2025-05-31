@@ -5,6 +5,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.config import TRUSTED_IPS, USING_WIREGUARD, state
+from api.config import TRUSTED_IPS, USING_WIREGUARD, state
 from api.dependecies.auth import get_current_user
 from api.models.parsers import (
     RData,
@@ -14,6 +15,7 @@ from api.models.parsers import (
     SharedUData,
     TokenData,
 )
+from api.routers.reconstruction import request_is_from_trusted_ip
 from api.routers.reconstruction import request_is_from_trusted_ip
 from api.utils.utils import (
     Shamir,
@@ -149,11 +151,16 @@ async def set_received_q(values: SharedQData, request: Request):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
 
     # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN,
     #         detail="You do not have permission to access this resource.",
+    #     )
+    # TODO: When deploying, uncomment this line
     #     )
     # TODO: When deploying, uncomment this line
     # to ensure that only the party with the correct IP can set the value
@@ -326,6 +333,9 @@ async def set_received_r(values: SharedRData, request: Request):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
 
     # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
@@ -477,6 +487,9 @@ async def receive_u_from_parties(values: SharedUData, request: Request):
     """
     if not request_is_from_trusted_ip(request):
         raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource.",
+            )
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )

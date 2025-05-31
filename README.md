@@ -1,6 +1,6 @@
 # Aukciszek Backend
 
-Aukciszek backend implements a Multi-Party Computation (MPC) protocol, specifically designed based on the principles outlined in the publication "Secure Multiparty Computation Goes Live" (https://eprint.iacr.org/2008/068.pdf). This foundational paper describes practical techniques for achieving secure multi-party computation, where multiple parties can jointly compute a function over their private inputs without revealing those inputs to each other. It's important to note that this backend specifically implements the comparison functionality as described in the paper, leveraging the distributed and collaborative nature inherent in MPC protocols.
+Aukciszek backend implements a Multi-Party Computation (MPC) protocol for conducting sealed-bid auctions, specifically designed based on the principles outlined in the publication "Secure Multiparty Computation Goes Live" (https://eprint.iacr.org/2008/068.pdf). The paper describes practical techniques for achieving secure multi-party computation, where multiple parties can jointly compute a comparison function over their private inputs without revealing those inputs to each other. This backend specifically implements the comparison functionality as described in the paper, using Shamir secret sharing to divide offers into shares, and Ben-Or, Goldwasser, Wigderson Protocol (BGW) to perform arithmetic operations on shares.
 
 ## 🚀 Getting Started
 
@@ -17,10 +17,12 @@ Install `uv` by following the official guide:
 
 ## 🔧 Running the Backend
 
-You’ll need to run **five separate backend instances**, each in its own terminal window and on a different port.
+You’ll need to run at least **five separate backend instances**, each in its own terminal window and on a different port.
 
 ### Key Concepts
 
+- Aukciszek backend needs to be run on a set of **n >= 5** servers that perform the Multi-Party Computation.
+- One of the servers is a **login server** that handles user (auctioneer or bidder) authentication using Supabase.
 - Only **Terminal 1** acts as the **login server**, requiring a valid `SUPABASE_URL`, `SUPABASE_KEY`, and the **full** `SECRET_KEYS_JWT` list.
 - Other terminals act as additional backend nodes and only need their corresponding JWT key in the appropriate position of the list. The rest of the entries should be `None`.
 - The order of servers in the `SERVERS` environment variable must match the order of JWT keys in `SECRET_KEYS_JWT`.

@@ -1,79 +1,133 @@
-# Aukciszek Backend
+# Setting up server-to-server communication through WireGurad
+Servers can communicate through WireGuard, encrypting packets on network level. It removes the necessity to use HTTPS aplication-level encryption between servers.
 
-## 🚀 Getting Started
+# Setting up WireGuard tunnel
+- Between server "benjamin-franklin" with public static ip "7.7.7.7"
+- And server "tomasz-jefferson" with public static ip "8.8.8.8"
+- Using example 10.0.1.0, 10.0.2.0 adresses for WireGuard interafce wg0, listening on port 8000
 
-To run the Aukciszek backend, it's **recommended** to use [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — a fast Python package and script runner.
+## 1. Check normal connection using public ip and default network interface eth0
+#### benjamin-franklin
+```sudo tcpdump -i eth0 udp 'port 8000'```
+#### tomasz-jefferson
+```nc -vz -u 7.7.7.7 8000```
 
----
+## 2. On "benjamin-franklin" server
+### Enable ip forwarding
+Uncomment option ```net.ipv4.ip_forward = 1``` in file ```/etc/sysctl.conf```
+#### Apply changes
+```sudo sysctl -p```
+#### Check settings - the follownig command should output "1"
+```cat /proc/sys/net/ipv4/ip_forward```
+### Install and run WireGuard
+#### Root privledges required
+```
+sudo su
+apt install wireguard
+cd /etc/wireguard/
+```
+#### Generate private-public key pair 
+```
+wg genkey | tee franklin-privatekey | wg pubkey > franklin-publickey
+chmod 600 franklin-*
+```
+#### Create file "wg0.conf" with the following content:
+```
+[Interface]
+## Local Address : A private IP address for wg0 interface.
+Address = 10.0.1.0/24
+ListenPort = 8000
 
-## 📦 Prerequisites
+## Benjamin Franklin
+# paste generated private key
+PrivateKey = 
+
+[Peer]
+## Tomasz Jefferson
+# paste peer's public key
+PublicKey = 
+Endpoint = 8.8.8.8:8000
+AllowedIPs = 10.0.1.0/24
+```
+### Create WireGuard network interface "wg0"
+```
+chmod 600 wg0.conf
+systemctl start wg-quick@wg0
+systemctl enable wg-quick@wg0
+```
+#### Each time after adding a peer, reload
+```systemctl reload wg-quick@wg0```
+
+## 3. On "tomasz-jefferson" server
+### Repeat the steps made on benjamin-franklin
+#### File "wg0.conf" should look like this:
+```
+[Interface]
+## Local Address : A private IP address for wg0 interface.
+Address = 10.0.3.0/24
+ListenPort = 8000
+
+## Tomasz Jefferson
+# paste generated private key
+PrivateKey = 
+
+[Peer]
+## Benjamin Franklin
+# paste peer's public key
+PublicKey = 
+Endpoint = 7.7.7.7:8000
+AllowedIPs = 10.0.1.0/24
+```
+
+## 4. Check WireGuard connection
+#### benjamin-franklin
+```sudo tcpdump -i wg0```
+#### tomasz-jefferson
+```nc -vz -u 10.0.1.0 8000```
+
+## 5. Run the backend
+
+### Prerequisites
 
 Install `uv` by following the official guide:  
 👉 https://docs.astral.sh/uv/getting-started/installation/
 
----
-
-## 🔧 Running the Backend
-
-You’ll need to run **five separate backend instances**, each in its own terminal window and on a different port.
-
 ### Key Concepts
 
-- Only **Terminal 1** acts as the **login server**, requiring a valid `SUPABASE_URL`, `SUPABASE_KEY`, and the **full** `SECRET_KEYS_JWT` list.
-- Other terminals act as additional backend nodes and only need their corresponding JWT key in the appropriate position of the list. The rest of the entries should be `None`.
+- Aukciszek backend needs to be run on a set of **n >= 5** servers that perform the Multi-Party Computation.
+- One of the servers is a **login server** that handles user (auctioneer or bidder) authentication using Supabase.
+- Only the **login server** require a valid `SUPABASE_URL`, `SUPABASE_KEY`, and the **full** `SECRET_KEYS_JWT` list.
+- Other servers act as additional backend nodes and only need their corresponding JWT key in the appropriate position of the list. The rest of the entries should be `None`.
 - The order of servers in the `SERVERS` environment variable must match the order of JWT keys in `SECRET_KEYS_JWT`.
-- The order of keys in `SECRET_KEYS_JWT` corresponds to the order of servers defined in the `SERVERS` environment variable (e.g., `SERVERS='http://localhost:5001, http://localhost:5002, http://localhost:5003, http://localhost:5004, http://localhost:5005'`).
+- The order of keys in `SECRET_KEYS_JWT` of the **login server** corresponds to the order of servers defined in the `SERVERS` environment variable 
 
-> **Example**:  
-> If a server is running on `localhost:5003`, it corresponds to the **third** key in the `SECRET_KEYS_JWT` list.
+### If you run the backend on port 8000, use WireGuard for server-server communication, but use public ips for client-server communication, the configuration in file ".env" should look like this:
 
----
-
-### 🖥️ Terminal Commands
-
-#### Terminal 1 (Login Server)
-
-```bash
-export SUPABASE_URL="your_supabase_url"
-export SUPABASE_KEY="your_supabase_key"
-export SECRET_KEYS_JWT="server_1_key,server_2_key,server_3_key,server_4_key,server_5_key"
-uv run uvicorn api.__init__:app --port 5001
+#### Login server
+```
+SUPABASE_URL='your_supabase_url'
+SUPABASE_KEY='your_supabase_key'
+SECRET_KEYS_JWT='server_1_key, server_2_key, server_3_key, server_4_key, server_5_key'
+TRUSTED_IPS = 'None, None, None, None, None'
+SERVERS = 'https://7.7.7.7:8000, https://8.8.8.8:8000, https://9.9.9.9:8000, https://10.10.10.10:8000, https://11.11.11.11:8000'
+WIREGUARD_IPS = '10.0.1.0, 10.0.2.0, 10.0.3.0, 10.0.4.0, 10.0.5.0'
+WIREGUARD_SERVERS = '10.0.1.0:8000, 10.0.2.0:8000, 10.0.3.0:8000, 10.0.4.0:8000, 10.0.5.0:8000'
+```
+#### Other servers
+```
+SECRET_KEYS_JWT='server_key, None, None, None, None'
+TRUSTED_IPS = 'None, None, None, None, None'
+SERVERS = 'https://7.7.7.7:8000, https://8.8.8.8:8000, https://9.9.9.9:8000, https://10.10.10.10:8000, https://11.11.11.11:8000'
+WIREGUARD_IPS = '10.0.1.0, 10.0.2.0, 10.0.3.0, 10.0.4.0, 10.0.5.0'
+WIREGUARD_SERVERS = '10.0.1.0:8000, 10.0.2.0:8000, 10.0.3.0:8000, 10.0.4.0:8000, 10.0.5.0:8000'
 ```
 
-#### Terminal 2
-
-```bash
-export SECRET_KEYS_JWT="server_2_key,None,None,None,None"
-uv run uvicorn api.__init__:app --port 5002
+### Running the server
+```
+uv run uvicorn api.__init__:app --host 0.0.0.0 --port 8000
 ```
 
-#### Terminal 3
-
-```bash
-export SECRET_KEYS_JWT="server_3_key,None,None,None,None"
-uv run uvicorn api.__init__:app --port 5003
+### Running Tests
 ```
-
-#### Terminal 4
-
-```bash
-export SECRET_KEYS_JWT="server_4_key,None,None,None,None"
-uv run uvicorn api.__init__:app --port 5004
-```
-
-#### Terminal 5
-
-```bash
-export SECRET_KEYS_JWT="server_5_key,None,None,None,None"
-uv run uvicorn api.__init__:app --port 5005
-```
-
----
-
-## 🧪 Running Tests
-
-To run the backend tests:
-
-```bash
 uv run python tests/__init__.py
 ```

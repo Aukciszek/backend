@@ -31,7 +31,7 @@ Endpoints used for server-to-server communication are secured by validating that
 
 - **Production:**  
   In production, servers communicate over HTTPS for secure data transmission. Generally, you shouldn't deploy servers behind a proxy unless it's absolutely essential.
-  If a proxy is used, it must be explicitly configured and fully trusted. This trusted proxy is responsible for replacing any existing X-Forwarded-For or X-Real-IP headers from untrusted sources with the true client's IP address it received. Our recent versions have removed proxy header support to reduce the risk of proxy misconfiguration and potential security vulnerabilities, emphasizing the need for a properly secured and trusted proxy when one is in use.
+  If a proxy is used, it must be explicitly configured and fully trusted. This trusted proxy is responsible for replacing any existing `X-Forwarded-For` or `X-Real-IP` headers from untrusted sources with the true client's IP address it received. Our recent versions have removed proxy header support to reduce the risk of proxy misconfiguration and potential security vulnerabilities, emphasizing the need for a properly secured and trusted proxy when one is in use.
 
 - **Alternative Communication:**  
   There is also an option to establish communication over **WireGuard**. This method is fully described in the `wireguard` branch.

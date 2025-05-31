@@ -85,3 +85,5 @@ To run the backend tests:
 ```bash
 uv run python tests/__init__.py
 ```
+
+If the tests complete successfully, no errors will be returned. Otherwise, an assert will return an error.

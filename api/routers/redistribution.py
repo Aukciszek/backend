@@ -151,9 +151,6 @@ async def set_received_q(values: SharedQData, request: Request):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
 
     # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
@@ -333,9 +330,6 @@ async def set_received_r(values: SharedRData, request: Request):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
 
     # if TRUSTED_IPS.index(request.client.host) != values.party_id - 1:
     #     raise HTTPException(
@@ -487,9 +481,6 @@ async def receive_u_from_parties(values: SharedUData, request: Request):
     """
     if not request_is_from_trusted_ip(request):
         raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource.",
-            )
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access this resource.",
             )

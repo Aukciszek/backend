@@ -59,7 +59,7 @@ router = APIRouter(
     },
 )
 
-def request_is_from_trusted_ip(request: Request, X_Forwarded_For: Optional[str] = Header(None)):
+def request_is_from_trusted_ip(request: Request):
     if USING_WIREGUARD:
         trusted_ips = WIREGUARD_IPS
         used_configuration = "WIREGUARD_IPS"
@@ -69,14 +69,7 @@ def request_is_from_trusted_ip(request: Request, X_Forwarded_For: Optional[str] 
     
     is_trusted = False
     if isinstance(trusted_ips, (list, tuple)):
-        if X_Forwarded_For:
-            forwarded_ip = X_Forwarded_For.split(":")[0]
-            if forwarded_ip in trusted_ips:
-                is_trusted=True
-        elif request.client is not None and request.client.host in trusted_ips:
-            # If no X-Forwarded-For header is present, check the direct client IP
-            # This is useful for cases where the request is not behind a proxy
-            # and the client IP is directly accessible.
+        if request.client is not None and request.client.host in trusted_ips:
             is_trusted = True
         else:
             raise HTTPException(
